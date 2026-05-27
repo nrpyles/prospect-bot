@@ -6,7 +6,7 @@ import type { Prospect } from "@/lib/mock-prospects";
 
 type ActionCard = {
   key: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
   count: number;
   title: string;
   hint: string;
