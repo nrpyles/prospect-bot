@@ -1,26 +1,251 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ─────────────────────────────────────────────────────────────
+   FunnelCloser brand tokens
+   Dark theme · sibling to Closer Capital · clean bold typography
+   ───────────────────────────────────────────────────────────── */
+
+@theme {
+  /* Surfaces */
+  --color-background: #08080A;
+  --color-background-2: #0B0B0E;
+  --color-surface: #111114;
+  --color-surface-2: #18181C;
+  --color-surface-3: #1F1F25;
+  --color-border: #1E1E24;
+  --color-border-strong: #2A2A33;
+  --color-border-soft: #15151A;
+
+  /* Text */
+  --color-foreground: #F4F4F6;
+  --color-foreground-dim: #9090A0;
+  --color-foreground-muted: #55555C;
+
+  /* Accent — refined orange from prospect-bot DNA */
+  --color-accent: #FF6B2C;
+  --color-accent-hover: #FF7D44;
+  --color-accent-warm: #FFB37C;
+  --color-accent-soft: rgba(255, 107, 44, 0.12);
+  --color-accent-ring: rgba(255, 107, 44, 0.25);
+  --color-accent-glow: rgba(255, 107, 44, 0.35);
+
+  /* Pipeline status colors */
+  --color-status-new: #6366F1;
+  --color-status-outreach: #3B82F6;
+  --color-status-followup: #F59E0B;
+  --color-status-warm: #22C55E;
+  --color-status-closing: #F97316;
+  --color-status-won: #10B981;
+  --color-status-lost: #64748B;
+
+  /* Website quality colors */
+  --color-quality-none: #EF4444;
+  --color-quality-terrible: #F97316;
+  --color-quality-outdated: #F59E0B;
+  --color-quality-decent: #3B82F6;
+  --color-quality-good: #22C55E;
+
+  /* Typography — ONE family, varying weights */
+  --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, monospace;
+  --font-display: var(--font-inter), system-ui, -apple-system, sans-serif;
+  --font-wordmark: var(--font-inter), system-ui, sans-serif;
+
+  /* Easing */
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
+  --ease-in-out-soft: cubic-bezier(0.65, 0, 0.35, 1);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ─────────── Base ─────────── */
+html {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  background: var(--color-background);
+  color: var(--color-foreground);
+  line-height: 1.55;
+  font-weight: 500; /* slightly bolder default body weight */
 }
+
+/* ─────────── Film grain — premium texture ─────────── */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+
+/* ─────────── Wordmark — Manrope ExtraBold, wide tracking ─────────── */
+.wordmark {
+  font-family: var(--font-wordmark);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.wordmark-tight {
+  font-family: var(--font-wordmark);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.wordmark-spaced {
+  font-family: var(--font-wordmark);
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+/* ─────────── Display headings — Manrope at heavy weights ─────────── */
+.display-xl {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(2.75rem, 6.5vw, 6rem);
+  letter-spacing: -0.045em;
+  line-height: 0.95;
+}
+
+.display-lg {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(2rem, 4.5vw, 3.75rem);
+  letter-spacing: -0.035em;
+  line-height: 1;
+}
+
+.display-md {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(1.75rem, 3vw, 2.5rem);
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+}
+
+/* Emphasis: italic + accent color — replaces the serif italic accents */
+.serif-italic {
+  font-family: var(--font-sans);
+  font-style: italic;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+/* ─────────── UI utility classes ─────────── */
+.eyebrow {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 0.7rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-foreground-dim);
+}
+
+.mono-stat {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.mono-tag {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 0.65rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ─────────── Polish primitives ─────────── */
+
+.glow-accent {
+  box-shadow:
+    0 0 0 1px rgba(255, 107, 44, 0.4),
+    0 10px 40px -10px rgba(255, 107, 44, 0.35),
+    0 0 60px -20px rgba(255, 107, 44, 0.5);
+}
+
+.card-lift {
+  transition: transform 280ms var(--ease-out-quart), border-color 280ms ease, box-shadow 280ms ease;
+}
+.card-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 40px -20px rgba(0, 0, 0, 0.6);
+}
+
+.border-gradient-accent {
+  position: relative;
+  isolation: isolate;
+}
+.border-gradient-accent::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(255,107,44,0.6), rgba(255,107,44,0) 60%);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.hero-halo {
+  background:
+    radial-gradient(60% 50% at 30% 0%, rgba(255, 107, 44, 0.18) 0%, transparent 60%),
+    radial-gradient(40% 60% at 90% 30%, rgba(99, 102, 241, 0.10) 0%, transparent 60%);
+}
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.marquee-track {
+  animation: marquee 50s linear infinite;
+  width: max-content;
+}
+
+@keyframes soft-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+.pulse-soft {
+  animation: soft-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-up {
+  animation: fade-up 700ms var(--ease-out-quart) both;
+}
+
+/* ─────────── Selection ─────────── */
+::selection {
+  background: var(--color-accent);
+  color: #000;
+}
+
+/* ─────────── Scrollbar ─────────── */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border-strong); border-radius: 5px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-foreground-muted); }
