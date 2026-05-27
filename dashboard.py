@@ -56,7 +56,13 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             # Run prospect finder in background thread
             def run_search():
                 try:
-                    subprocess.run(["python3", "prospect-finder-v2.py"], cwd=os.path.dirname(os.path.abspath(__file__)) or ".")
+                    env = os.environ.copy()
+                    script_dir = os.path.dirname(os.path.abspath(__file__)) or "."
+                    subprocess.run(
+                        ["python3", "prospect-finder-v2.py"],
+                        cwd=script_dir,
+                        env=env
+                    )
                 except Exception as e:
                     print(f"Search error: {e}")
             
@@ -776,3 +782,4 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("\n👋 Dashboard stopped.")
         server.server_close()
+
