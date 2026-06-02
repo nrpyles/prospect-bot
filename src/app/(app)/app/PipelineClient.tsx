@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { Plus, RefreshCw, Sparkles } from "lucide-react";
 import type { Prospect } from "@/lib/mock-prospects";
 import type { Status } from "@/lib/pipeline";
@@ -40,6 +40,15 @@ export function PipelineClient({
     city: "All",
     view: "pipeline",
   });
+
+  // On first mount, switch to list view on phone-sized screens — the Kanban
+  // has 6 columns that stack into a very long single-column scroll on mobile.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.matchMedia("(max-width: 768px)").matches) {
+      setFilter((f) => (f.view === "pipeline" ? { ...f, view: "list" } : f));
+    }
+  }, []);
 
   const filtered = useMemo(() => {
     return prospects.filter((p) => {
@@ -107,29 +116,32 @@ export function PipelineClient({
   const isEmpty = prospects.length === 0;
 
   return (
-    <div className="mx-auto max-w-[1600px] px-4 py-8 lg:px-8">
+    <div className="mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8">
       {/* Greeting */}
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-        <div>
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4 lg:mb-8">
+        <div className="min-w-0 flex-1">
           <div className="mb-2 flex items-center gap-2">
             <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--color-accent)] pulse-soft" />
-            <p className="eyebrow">TODAY · {new Date().toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" }).toUpperCase()}</p>
+            <p className="eyebrow truncate">
+              TODAY · {new Date().toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" }).toUpperCase()}
+            </p>
           </div>
-          <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">
-            {userFirstName ? `Hey ${userFirstName}` : "Hey there"} — let&apos;s close some deals.
+          <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl md:text-4xl">
+            {userFirstName ? `Hey ${userFirstName}` : "Hey there"} —{" "}
+            <span className="block sm:inline">let&apos;s close some deals.</span>
           </h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full items-center gap-2 sm:w-auto">
           <button
             onClick={() => setFindOpen(true)}
-            className="group inline-flex items-center gap-2 rounded-xl bg-[color:var(--color-accent)] px-5 py-2.5 text-sm font-bold text-black transition-all hover:bg-[color:var(--color-accent-hover)] glow-accent"
+            className="group inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-[color:var(--color-accent)] px-4 py-2.5 text-sm font-bold text-black transition-all hover:bg-[color:var(--color-accent-hover)] glow-accent sm:flex-initial sm:px-5"
           >
             <Sparkles className="h-4 w-4 transition-transform group-hover:rotate-12" />
-            Find prospects
+            <span className="whitespace-nowrap">Find prospects</span>
           </button>
           <button
             disabled
-            className="inline-flex items-center gap-2 rounded-xl border border-[color:var(--color-border-strong)] bg-[color:var(--color-surface)] px-4 py-2.5 text-sm font-semibold text-[color:var(--color-foreground-dim)] opacity-60"
+            className="hidden items-center gap-2 rounded-xl border border-[color:var(--color-border-strong)] bg-[color:var(--color-surface)] px-4 py-2.5 text-sm font-semibold text-[color:var(--color-foreground-dim)] opacity-60 md:inline-flex"
             title="Manual add — coming next"
           >
             <Plus className="h-4 w-4" />
@@ -137,8 +149,9 @@ export function PipelineClient({
           </button>
           <button
             onClick={() => setProspects(initialProspects)}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[color:var(--color-border-strong)] bg-[color:var(--color-surface)] text-[color:var(--color-foreground-dim)] transition-colors hover:text-foreground"
+            className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-[color:var(--color-border-strong)] bg-[color:var(--color-surface)] text-[color:var(--color-foreground-dim)] transition-colors hover:text-foreground"
             title="Refresh"
+            aria-label="Refresh"
           >
             <RefreshCw className="h-4 w-4" />
           </button>
