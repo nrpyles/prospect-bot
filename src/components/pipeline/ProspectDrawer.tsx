@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, ExternalLink, Phone, Mail, MapPin, Trash2, Save, Sparkles, Search, Copy, Check } from "lucide-react";
+import { X, ExternalLink, Phone, Mail, MapPin, Trash2, Save, Sparkles, Search, Copy, Check, Layers } from "lucide-react";
 import type { Prospect } from "@/lib/mock-prospects";
 import { buildResearchLinks } from "@/lib/research-links";
 import {
@@ -17,6 +17,7 @@ import {
   type Source,
 } from "@/lib/pipeline";
 import { AIDraftView } from "./AIDraftView";
+import { SequencePicker } from "./SequencePicker";
 
 type DrawerMode = "view" | "edit" | "draft";
 
@@ -30,10 +31,12 @@ type ProspectDrawerProps = {
 export function ProspectDrawer({ prospect, onClose, onSave, onDelete }: ProspectDrawerProps) {
   const [draft, setDraft] = useState<Prospect | null>(prospect);
   const [mode, setMode] = useState<DrawerMode>("view");
+  const [sequencePickerOpen, setSequencePickerOpen] = useState(false);
 
   useEffect(() => {
     setDraft(prospect);
     setMode("view");
+    setSequencePickerOpen(false);
   }, [prospect]);
 
   useEffect(() => {
@@ -145,11 +148,20 @@ export function ProspectDrawer({ prospect, onClose, onSave, onDelete }: Prospect
               ) : (
                 <>
                   <button
+                    onClick={() => setSequencePickerOpen(true)}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-[color:var(--color-border-strong)] bg-[color:var(--color-surface)] px-3 py-2 text-sm font-semibold transition-colors hover:border-[color:var(--color-accent)] hover:text-[color:var(--color-accent)]"
+                    title="Enroll in a sequence"
+                  >
+                    <Layers className="h-4 w-4" />
+                    <span className="hidden sm:inline">Enroll</span>
+                  </button>
+                  <button
                     onClick={() => setMode("draft")}
-                    className="inline-flex items-center gap-2 rounded-xl border border-[color:var(--color-accent)] bg-[color:var(--color-accent-soft)] px-4 py-2 text-sm font-bold text-[color:var(--color-accent)] transition-colors hover:bg-[color:var(--color-accent)] hover:text-black"
+                    className="inline-flex items-center gap-2 rounded-xl border border-[color:var(--color-accent)] bg-[color:var(--color-accent-soft)] px-3 py-2 text-sm font-bold text-[color:var(--color-accent)] transition-colors hover:bg-[color:var(--color-accent)] hover:text-black"
                   >
                     <Sparkles className="h-4 w-4" />
-                    Draft AI message
+                    <span className="hidden sm:inline">Draft AI message</span>
+                    <span className="sm:hidden">AI</span>
                   </button>
                   <button
                     onClick={() => setMode("edit")}
@@ -163,6 +175,13 @@ export function ProspectDrawer({ prospect, onClose, onSave, onDelete }: Prospect
           </div>
         )}
       </aside>
+
+      <SequencePicker
+        open={sequencePickerOpen}
+        prospectId={prospect.id}
+        prospectName={prospect.name}
+        onClose={() => setSequencePickerOpen(false)}
+      />
     </>
   );
 }
