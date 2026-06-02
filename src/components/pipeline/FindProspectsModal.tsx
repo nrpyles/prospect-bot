@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, Sparkles, AlertCircle, CheckCircle2 } from "lucide-react";
+import { X, Sparkles, AlertCircle, CheckCircle2, Landmark, Briefcase } from "lucide-react";
 import type { Prospect } from "@/lib/mock-prospects";
-import { INDUSTRIES } from "@/lib/pipeline";
+import { INDUSTRIES, INDUSTRY_PRESETS, type Industry } from "@/lib/pipeline";
 
 type RunResult = {
   prospects: Prospect[];
@@ -35,7 +35,7 @@ export function FindProspectsModal({
 }) {
   const [cities, setCities] = useState<string[]>(DEFAULT_CITIES);
   const [cityInput, setCityInput] = useState("");
-  const [industries, setIndustries] = useState<string[]>([...DEFAULT_INDUSTRIES]);
+  const [industries, setIndustries] = useState<Industry[]>([...DEFAULT_INDUSTRIES] as Industry[]);
   const [apiKey, setApiKey] = useState("");
   const [isRunning, setIsRunning] = useState(false);
   const [result, setResult] = useState<RunResult | null>(null);
@@ -66,7 +66,7 @@ export function FindProspectsModal({
     setCities((cs) => cs.filter((x) => x !== c));
   }
 
-  function toggleIndustry(i: string) {
+  function toggleIndustry(i: Industry) {
     setIndustries((is) => (is.includes(i) ? is.filter((x) => x !== i) : [...is, i]));
   }
 
@@ -207,27 +207,56 @@ export function FindProspectsModal({
 
               {/* Industries */}
               <section>
-                <label className="eyebrow mb-2 block text-[10px]">
-                  INDUSTRIES — {industries.length} SELECTED
-                </label>
-                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-4">
-                  {INDUSTRIES.filter((i) => i !== "Other").map((i) => {
-                    const checked = industries.includes(i);
-                    return (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => toggleIndustry(i)}
-                        className={`rounded-lg border px-3 py-2 text-left text-xs font-semibold transition-colors ${
-                          checked
-                            ? "border-[color:var(--color-accent)] bg-[color:var(--color-accent-soft)] text-[color:var(--color-accent)]"
-                            : "border-[color:var(--color-border)] bg-background text-[color:var(--color-foreground-dim)] hover:border-[color:var(--color-border-strong)] hover:text-foreground"
-                        }`}
-                      >
-                        {i}
-                      </button>
-                    );
-                  })}
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <label className="eyebrow text-[10px]">
+                    INDUSTRIES — {industries.length} SELECTED
+                  </label>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setIndustries([...INDUSTRY_PRESETS.agency.industries])}
+                      className="inline-flex items-center gap-1 rounded-md border border-[color:var(--color-border-strong)] bg-[color:var(--color-surface)] px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-[color:var(--color-foreground-dim)] transition-colors hover:border-[color:var(--color-accent-ring)] hover:text-[color:var(--color-accent)]"
+                    >
+                      <Briefcase className="h-2.5 w-2.5" />
+                      Agency preset
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIndustries([...INDUSTRY_PRESETS.lending.industries])}
+                      className="inline-flex items-center gap-1 rounded-md border border-[color:var(--color-border-strong)] bg-[color:var(--color-surface)] px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-[color:var(--color-foreground-dim)] transition-colors hover:border-[color:var(--color-accent-ring)] hover:text-[color:var(--color-accent)]"
+                    >
+                      <Landmark className="h-2.5 w-2.5" />
+                      Lending preset
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIndustries([])}
+                      className="rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-[color:var(--color-foreground-muted)] transition-colors hover:text-foreground"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+                <div className="max-h-[280px] overflow-y-auto rounded-xl border border-[color:var(--color-border)] p-2">
+                  <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-4">
+                    {INDUSTRIES.filter((i) => i !== "Other").map((i) => {
+                      const checked = industries.includes(i);
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => toggleIndustry(i)}
+                          className={`rounded-lg border px-2.5 py-1.5 text-left text-xs font-semibold transition-colors ${
+                            checked
+                              ? "border-[color:var(--color-accent)] bg-[color:var(--color-accent-soft)] text-[color:var(--color-accent)]"
+                              : "border-[color:var(--color-border)] bg-background text-[color:var(--color-foreground-dim)] hover:border-[color:var(--color-border-strong)] hover:text-foreground"
+                          }`}
+                        >
+                          {i}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </section>
 

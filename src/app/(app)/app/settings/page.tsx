@@ -35,6 +35,9 @@ export default async function SettingsPage() {
 
       <SettingsClient
         orgName={org?.name ?? "My Workspace"}
+        workspaceMode={(org?.workspaceMode ?? "agency") as "agency" | "lending"}
+        senderName={org?.senderName ?? ""}
+        senderCompany={org?.senderCompany ?? ""}
         googleMapsApiKey={org?.googleMapsApiKey ?? ""}
         defaultCities={(org?.defaultCities as string[] | null) ?? []}
         defaultIndustries={(org?.defaultIndustries as string[] | null) ?? []}

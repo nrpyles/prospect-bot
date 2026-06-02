@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getUserContext } from "@/lib/server-context";
 import { db } from "@/db";
-import { prospects } from "@/db/schema";
+import { prospects, organizations } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { toUiProspect } from "@/db/prospects";
 import { draftEmail } from "@/lib/ai-drafter";
+import type { WorkspaceMode } from "@/lib/pipeline";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -42,11 +43,23 @@ export async function POST(
   )[0];
   if (!row) return NextResponse.json({ error: "Prospect not found" }, { status: 404 });
 
+  // Pull org-level voice/identity (workspace mode + sender info)
+  const [org] = await db
+    .select({
+      mode: organizations.workspaceMode,
+      senderName: organizations.senderName,
+      senderCompany: organizations.senderCompany,
+    })
+    .from(organizations)
+    .where(eq(organizations.id, ctx.orgId))
+    .limit(1);
+
   try {
     const draft = await draftEmail({
       prospect: toUiProspect(row),
-      senderName: parsed.senderName,
-      senderCompany: parsed.senderCompany,
+      mode: (org?.mode ?? "agency") as WorkspaceMode,
+      senderName: parsed.senderName ?? org?.senderName ?? undefined,
+      senderCompany: parsed.senderCompany ?? org?.senderCompany ?? undefined,
       packageHook: parsed.packageHook,
       apiKey: parsed.apiKey,
     });

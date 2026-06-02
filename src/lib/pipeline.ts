@@ -30,13 +30,166 @@ export const QUALITIES = [
 ] as const;
 export type Quality = (typeof QUALITIES)[number];
 
+export const WORKSPACE_MODES = ["agency", "lending"] as const;
+export type WorkspaceMode = (typeof WORKSPACE_MODES)[number];
+
+/**
+ * Master list of small business industries. ~90 types covering both
+ * the marketing-agency ICP (home services) and the business-lending
+ * ICP (mature small businesses needing capital).
+ */
 export const INDUSTRIES = [
-  "Roofing", "HVAC", "Fencing", "Plumbing", "Landscaping", "Garage Doors",
-  "Auto Detailing", "Med Spa", "Dentist", "Pest Control", "Concrete",
-  "Pool Builder", "Painting", "Electrical", "Tree Service", "Pressure Washing",
-  "Flooring", "Window Cleaning", "Moving", "Junk Removal", "Other",
+  // ── Home services (Marketing Agency mode) ──
+  "Roofing",
+  "HVAC",
+  "Fencing",
+  "Plumbing",
+  "Landscaping",
+  "Garage Doors",
+  "Auto Detailing",
+  "Pest Control",
+  "Concrete",
+  "Pool Builder",
+  "Painting",
+  "Electrical",
+  "Tree Service",
+  "Pressure Washing",
+  "Flooring",
+  "Window Cleaning",
+  "Moving",
+  "Junk Removal",
+  "Solar Installation",
+  "Carpet Cleaning",
+  "Restoration",
+  "Mold Remediation",
+
+  // ── Food & Beverage ──
+  "Restaurant",
+  "Cafe",
+  "Bakery",
+  "Catering",
+  "Bar",
+  "Food Truck",
+  "Liquor Store",
+
+  // ── Beauty & Wellness ──
+  "Hair Salon",
+  "Barbershop",
+  "Nail Salon",
+  "Med Spa",
+  "Massage",
+  "Tattoo Shop",
+
+  // ── Fitness ──
+  "Gym",
+  "Yoga Studio",
+  "Pilates Studio",
+  "Personal Training",
+  "Martial Arts",
+  "Dance Studio",
+
+  // ── Auto ──
+  "Auto Repair",
+  "Body Shop",
+  "Tire Shop",
+  "Car Wash",
+  "Car Dealership",
+  "Auto Parts",
+
+  // ── Childcare & Education ──
+  "Daycare",
+  "Preschool",
+  "Tutoring",
+  "Music School",
+  "Driving School",
+
+  // ── Pets ──
+  "Veterinary",
+  "Pet Grooming",
+  "Pet Boarding",
+  "Dog Trainer",
+
+  // ── Health & Medical ──
+  "Dentist",
+  "Orthodontist",
+  "Optometry",
+  "Chiropractor",
+  "Physical Therapy",
+  "Acupuncture",
+  "Mental Health",
+  "Medical Clinic",
+  "Pharmacy",
+
+  // ── Professional Services ──
+  "Insurance Agency",
+  "Real Estate",
+  "Mortgage Broker",
+  "Law Firm",
+  "Accounting",
+  "Bookkeeping",
+  "Tax Prep",
+  "Wedding Planner",
+  "Travel Agency",
+  "Photography",
+  "Event Venue",
+
+  // ── Retail ──
+  "Florist",
+  "Boutique",
+  "Furniture Store",
+  "Jewelry Store",
+  "Sporting Goods",
+  "Hardware Store",
+  "Garden Center",
+  "Bookstore",
+  "Smoke Shop",
+  "Convenience Store",
+
+  // ── Construction & Trades ──
+  "General Contractor",
+  "Commercial Construction",
+  "Remodeling",
+  "Carpentry",
+  "Welding",
+  "Locksmith",
+
+  // ── Logistics & B2B ──
+  "Trucking",
+  "Delivery Service",
+  "Janitorial",
+  "Cleaning Service",
+  "Print Shop",
+  "Sign Shop",
+  "Manufacturing",
+  "Wholesale",
+  "Funeral Home",
+
+  "Other",
 ] as const;
 export type Industry = (typeof INDUSTRIES)[number];
+
+/** Preset industry picks per workspace mode. */
+export const INDUSTRY_PRESETS: Record<WorkspaceMode, { label: string; industries: Industry[] }> = {
+  agency: {
+    label: "Home services (bad-website ICP)",
+    industries: [
+      "Roofing", "HVAC", "Fencing", "Plumbing", "Landscaping",
+      "Garage Doors", "Pool Builder", "Med Spa", "Dentist", "Pest Control",
+      "Concrete", "Painting", "Electrical", "Tree Service", "Pressure Washing",
+      "Flooring", "Window Cleaning", "Solar Installation", "Restoration", "Auto Detailing",
+    ],
+  },
+  lending: {
+    label: "Mature SMBs (lending ICP)",
+    industries: [
+      "Restaurant", "Cafe", "Bakery", "Hair Salon", "Barbershop",
+      "Nail Salon", "Med Spa", "Gym", "Auto Repair", "Body Shop",
+      "Veterinary", "Daycare", "Florist", "Liquor Store", "Convenience Store",
+      "Boutique", "Furniture Store", "Jewelry Store", "Print Shop", "Tattoo Shop",
+      "Dentist", "Chiropractor", "Optometry", "Insurance Agency", "Real Estate",
+    ],
+  },
+};
 
 export const SOURCES = [
   "Google Maps Bot", "Google Maps", "Facebook Group", "Google Page 2",

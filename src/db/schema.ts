@@ -58,6 +58,11 @@ export const sequenceStepKindEnum = pgEnum("sequence_step_kind", [
   "task",
 ]);
 
+export const workspaceModeEnum = pgEnum("workspace_mode", [
+  "agency", // marketing agency hunting bad-website prospects
+  "lending", // business lender hunting mature SMBs needing capital
+]);
+
 export const messageDirectionEnum = pgEnum("message_direction", [
   "outbound",
   "inbound",
@@ -103,8 +108,13 @@ export const organizations = pgTable("organizations", {
   ownerId: uuid("owner_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
+  // Workspace mode controls AI voice + search defaults
+  workspaceMode: workspaceModeEnum("workspace_mode").notNull().default("agency"),
   // Per-org API keys (bring-your-own-key model)
   googleMapsApiKey: text("google_maps_api_key"),
+  // Per-org sender identity for AI-drafted outreach (shown in email signature)
+  senderName: text("sender_name"),
+  senderCompany: text("sender_company"),
   // Default search settings
   defaultCities: jsonb("default_cities").$type<string[]>().default(sql`'[]'::jsonb`),
   defaultIndustries: jsonb("default_industries").$type<string[]>().default(sql`'[]'::jsonb`),
