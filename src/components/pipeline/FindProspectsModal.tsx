@@ -86,13 +86,37 @@ export function FindProspectsModal({
           existingNames,
         }),
       });
-      const data = await res.json();
+
+      // Try to parse JSON; fall back to a helpful message if the response isn't JSON
+      // (e.g., Vercel returned an HTML 5xx/504 timeout page).
+      const ct = res.headers.get("content-type") ?? "";
+      let data: unknown;
+      if (ct.includes("application/json")) {
+        data = await res.json();
+      } else {
+        const text = await res.text();
+        if (res.status === 504 || /timeout|FUNCTION_INVOCATION_TIMEOUT/i.test(text)) {
+          setError(
+            "The search took too long and timed out. Try fewer cities × industries per run (Vercel's free-tier function limit is 60s).",
+          );
+        } else if (res.status >= 500) {
+          setError(`Server error (${res.status}). Check the Vercel logs for details.`);
+        } else {
+          setError(`Unexpected response (${res.status}). ${text.slice(0, 200)}`);
+        }
+        return;
+      }
+
       if (!res.ok) {
-        setError(data.error ?? "Search failed.");
+        const errMsg =
+          typeof data === "object" && data && "error" in data && typeof (data as { error?: unknown }).error === "string"
+            ? (data as { error: string }).error
+            : `Search failed (${res.status}).`;
+        setError(errMsg);
         return;
       }
       setResult(data as RunResult);
-      onComplete(data.prospects);
+      onComplete((data as RunResult).prospects);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
