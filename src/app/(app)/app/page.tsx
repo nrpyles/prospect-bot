@@ -2,6 +2,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { eq } from "drizzle-orm";
 import { getUserContext } from "@/lib/server-context";
 import { listProspects } from "@/db/prospects";
+import { dueActionsSummary } from "@/db/sequences";
 import { PipelineClient } from "./PipelineClient";
 import { db } from "@/db";
 import { organizations, users as usersTbl } from "@/db/schema";
@@ -34,13 +35,18 @@ export default async function DashboardPage() {
     );
   }
 
-  const [prospects, user] = await Promise.all([listProspects(ctx.orgId), currentUser()]);
+  const [prospects, user, dueSummary] = await Promise.all([
+    listProspects(ctx.orgId),
+    currentUser(),
+    dueActionsSummary(ctx.orgId),
+  ]);
 
   return (
     <PipelineClient
       initialProspects={prospects}
       orgId={ctx.orgId}
       userFirstName={user?.firstName ?? null}
+      dueSequenceCount={dueSummary.dueCount}
     />
   );
 }

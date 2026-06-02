@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { Plus, RefreshCw, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { Plus, RefreshCw, Sparkles, Layers, ArrowRight } from "lucide-react";
 import type { Prospect } from "@/lib/mock-prospects";
 import type { Status } from "@/lib/pipeline";
 import { Filters, type FilterState } from "@/components/pipeline/Filters";
@@ -24,10 +25,12 @@ export function PipelineClient({
   initialProspects,
   orgId: _orgId,
   userFirstName,
+  dueSequenceCount = 0,
 }: {
   initialProspects: Prospect[];
   orgId: string;
   userFirstName?: string | null;
+  dueSequenceCount?: number;
 }) {
   const [prospects, setProspects] = useState<Prospect[]>(initialProspects);
   const [selected, setSelected] = useState<Prospect | null>(null);
@@ -162,6 +165,31 @@ export function PipelineClient({
         <EmptyState onFindProspects={() => setFindOpen(true)} />
       ) : (
         <>
+          {/* Sequence due banner — only shows when sequence touches are due */}
+          {dueSequenceCount > 0 && (
+            <Link
+              href="/app/sequences/due"
+              className="group mb-6 flex items-center justify-between gap-4 rounded-2xl border border-[color:var(--color-accent)] bg-[color:var(--color-accent-soft)] p-4 transition-all hover:-translate-y-0.5 lg:p-5"
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[color:var(--color-accent)] text-black">
+                  <Layers className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-sm font-bold text-[color:var(--color-accent)] sm:text-base">
+                    {dueSequenceCount === 1
+                      ? "1 sequence touch is due now"
+                      : `${dueSequenceCount} sequence touches are due now`}
+                  </div>
+                  <div className="text-xs text-[color:var(--color-foreground-dim)]">
+                    Draft, copy, send, advance — knock them out in one pass.
+                  </div>
+                </div>
+              </div>
+              <ArrowRight className="h-5 w-5 flex-shrink-0 text-[color:var(--color-accent)] transition-transform group-hover:translate-x-1" />
+            </Link>
+          )}
+
           {/* Today's playbook */}
           <section className="mb-10">
             <TodaysPlaybook
