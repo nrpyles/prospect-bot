@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { eq } from "drizzle-orm";
 import { runLeadSearch } from "@/lib/lead-search";
 import { INDUSTRIES, QUALITIES } from "@/lib/pipeline";
 import { getUserContext } from "@/lib/server-context";
 import { insertProspects, getExistingProspectNames } from "@/db/prospects";
+import { db } from "@/db";
+import { organizations } from "@/db/schema";
 
 // cheerio + fetch with redirects need Node runtime, not Edge.
 export const runtime = "nodejs";
@@ -42,21 +45,31 @@ export async function POST(req: Request) {
     );
   }
 
+  // Resolve API key: request body → org settings → shared env var.
   const userApiKey = parsed.data.apiKey?.trim();
+  let orgApiKey: string | undefined;
+  if (!userApiKey && db) {
+    const [org] = await db
+      .select({ key: organizations.googleMapsApiKey })
+      .from(organizations)
+      .where(eq(organizations.id, ctx.orgId))
+      .limit(1);
+    orgApiKey = org?.key?.trim() || undefined;
+  }
   const sharedApiKey = process.env.FUNNELCLOSER_GMAPS_API_KEY?.trim();
-  const apiKey = userApiKey || sharedApiKey;
+  const apiKey = userApiKey || orgApiKey || sharedApiKey;
 
   if (!apiKey) {
     return NextResponse.json(
       {
         error:
-          "No Google Maps API key available. Paste your own key in Settings or contact support for free-trial access.",
+          "No Google Maps API key available. Paste one in the modal, save it in Settings, or set FUNNELCLOSER_GMAPS_API_KEY on the server for free-trial use.",
       },
       { status: 400 },
     );
   }
 
-  const usingSharedKey = !userApiKey;
+  const usingSharedKey = !userApiKey && !orgApiKey;
 
   try {
     // Pull existing names from DB so we de-dupe across all prospects in this org,
