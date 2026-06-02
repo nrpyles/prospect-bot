@@ -6,6 +6,7 @@
  */
 import { checkWebsiteQuality } from "./scoring";
 import { searchPlaces, GoogleMapsError } from "./google-maps";
+import { findEmailsForWebsite } from "./email-finder";
 import type { Prospect } from "./mock-prospects";
 import type { Industry, Quality } from "./pipeline";
 
@@ -125,6 +126,19 @@ export async function runLeadSearch(
             continue;
           }
 
+          // Best-effort email discovery — only for prospects with a website.
+          // Failures are silent so they don't fail the whole search.
+          let discoveredEmail: string | undefined;
+          if (place.website) {
+            try {
+              const emailResult = await findEmailsForWebsite(place.website);
+              const best = emailResult.emails[0];
+              if (best && best.score >= 70) discoveredEmail = best.email;
+            } catch {
+              // ignore — email discovery is opportunistic
+            }
+          }
+
           const cityShort = city.split(",")[0].trim();
           const prospect: Prospect = {
             id: `p_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
@@ -132,6 +146,7 @@ export async function runLeadSearch(
             industry: industry as Industry,
             city: cityShort,
             phone: place.phone || undefined,
+            email: discoveredEmail,
             website: place.website || undefined,
             quality: score.quality,
             qualityIssues: score.issues,

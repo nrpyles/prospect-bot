@@ -18,6 +18,7 @@ import {
 } from "@/lib/pipeline";
 import { AIDraftView } from "./AIDraftView";
 import { SequencePicker } from "./SequencePicker";
+import { FindEmailButton } from "./FindEmailButton";
 
 type DrawerMode = "view" | "edit" | "draft";
 
@@ -27,6 +28,9 @@ type ProspectDrawerProps = {
   onSave: (updated: Prospect) => void;
   onDelete: (id: string) => void;
 };
+
+// Inline helper for DetailView email row — needs onSave callback so we
+// hoist the prospect/onSave refs down through a closure.
 
 export function ProspectDrawer({ prospect, onClose, onSave, onDelete }: ProspectDrawerProps) {
   const [draft, setDraft] = useState<Prospect | null>(prospect);
@@ -105,7 +109,14 @@ export function ProspectDrawer({ prospect, onClose, onSave, onDelete }: Prospect
           ) : mode === "draft" ? (
             <AIDraftView prospect={draft} onBack={() => setMode("view")} />
           ) : (
-            <DetailView prospect={draft} />
+            <DetailView
+              prospect={draft}
+              onEmailFound={(email) => {
+                const updated = { ...draft, email };
+                setDraft(updated);
+                onSave(updated);
+              }}
+            />
           )}
         </div>
 
@@ -197,7 +208,13 @@ function Badge({ color, children }: { color: string; children: React.ReactNode }
   );
 }
 
-function DetailView({ prospect }: { prospect: Prospect }) {
+function DetailView({
+  prospect,
+  onEmailFound,
+}: {
+  prospect: Prospect;
+  onEmailFound?: (email: string) => void;
+}) {
   return (
     <div className="space-y-7">
       {/* Research — prominent, top of drawer */}
@@ -210,8 +227,16 @@ function DetailView({ prospect }: { prospect: Prospect }) {
           {prospect.phone && (
             <CopyableContactRow icon={<Phone className="h-4 w-4" />} label={prospect.phone} value={prospect.phone} />
           )}
-          {prospect.email && (
+          {prospect.email ? (
             <CopyableContactRow icon={<Mail className="h-4 w-4" />} label={prospect.email} value={prospect.email} />
+          ) : (
+            <li>
+              <FindEmailButton
+                prospectId={prospect.id}
+                hasWebsite={Boolean(prospect.website)}
+                onEmailFound={(email) => onEmailFound?.(email)}
+              />
+            </li>
           )}
           {prospect.address && (
             <ContactRow icon={<MapPin className="h-4 w-4" />} label={prospect.address} />

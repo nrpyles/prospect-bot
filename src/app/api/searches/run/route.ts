@@ -106,6 +106,7 @@ export async function POST(req: Request) {
         industry: p.industry,
         city: p.city,
         phone: p.phone,
+        email: p.email,
         website: p.website,
         quality: p.quality,
         qualityIssues: p.qualityIssues,
