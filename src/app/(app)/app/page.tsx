@@ -35,11 +35,20 @@ export default async function DashboardPage() {
     );
   }
 
-  const [prospects, user, dueSummary] = await Promise.all([
+  const [prospects, user, dueSummary, orgRow] = await Promise.all([
     listProspects(ctx.orgId),
     currentUser(),
     dueActionsSummary(ctx.orgId),
+    db
+      ? db
+          .select({ mode: organizations.workspaceMode })
+          .from(organizations)
+          .where(eq(organizations.id, ctx.orgId))
+          .limit(1)
+      : Promise.resolve([]),
   ]);
+
+  const workspaceMode = (orgRow[0]?.mode ?? "agency") as "agency" | "lending";
 
   return (
     <PipelineClient
@@ -47,6 +56,7 @@ export default async function DashboardPage() {
       orgId={ctx.orgId}
       userFirstName={user?.firstName ?? null}
       dueSequenceCount={dueSummary.dueCount}
+      workspaceMode={workspaceMode}
     />
   );
 }

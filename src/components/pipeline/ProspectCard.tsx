@@ -4,17 +4,20 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { MapPin, Search, ExternalLink, Star } from "lucide-react";
 import type { Prospect } from "@/lib/mock-prospects";
-import { QUALITY_COLORS, STATUS_COLORS } from "@/lib/pipeline";
+import { QUALITY_COLORS, STATUS_COLORS, type WorkspaceMode } from "@/lib/pipeline";
 import { buildResearchLinks } from "@/lib/research-links";
+import { qualifyProspect, BAND_COLOR } from "@/lib/qualification";
 
 export function ProspectCard({
   prospect,
   onClick,
   isDragOverlay = false,
+  workspaceMode = "agency",
 }: {
   prospect: Prospect;
   onClick?: () => void;
   isDragOverlay?: boolean;
+  workspaceMode?: WorkspaceMode;
 }) {
   const sortable = useSortable({ id: prospect.id, disabled: isDragOverlay });
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = sortable;
@@ -29,6 +32,8 @@ export function ProspectCard({
 
   const statusColor = STATUS_COLORS[prospect.status];
   const qualityColor = QUALITY_COLORS[prospect.quality];
+  const fit = qualifyProspect(prospect, workspaceMode);
+  const fitColor = BAND_COLOR[fit.band];
   const links = buildResearchLinks(prospect, prospect.googlePlaceId);
   const mapsLink = links.find((l) => l.key === "maps");
   const searchLink = links.find((l) => l.key === "search");
@@ -57,16 +62,38 @@ export function ProspectCard({
         style={{ background: statusColor }}
       />
 
-      {/* Name + rating */}
+      {/* Name + fit badge */}
       <div className="flex items-start justify-between gap-2">
-        <div className="text-sm font-bold leading-tight text-foreground">{prospect.name}</div>
-        {prospect.rating && (
-          <div className="mono-stat flex items-center gap-0.5 text-[11px] text-[color:var(--color-status-followup)]">
-            <Star className="h-3 w-3 fill-current" />
-            {prospect.rating}
-          </div>
-        )}
+        <div className="min-w-0 flex-1 text-sm font-bold leading-tight text-foreground">
+          {prospect.name}
+        </div>
+        <div
+          className="flex flex-shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+          style={{
+            background: `color-mix(in srgb, ${fitColor} 18%, transparent)`,
+            color: fitColor,
+          }}
+          title={fit.headline}
+        >
+          <span className="mono-stat">{fit.score}</span>
+          <span className="hidden sm:inline">FIT</span>
+        </div>
       </div>
+
+      {/* Rating + reviews row */}
+      {(prospect.rating || (prospect.reviewCount ?? 0) > 0) && (
+        <div className="mt-1.5 flex items-center gap-2 text-[11px] text-[color:var(--color-foreground-dim)]">
+          {prospect.rating && (
+            <span className="mono-stat flex items-center gap-0.5 text-[color:var(--color-status-followup)]">
+              <Star className="h-3 w-3 fill-current" />
+              {prospect.rating}
+            </span>
+          )}
+          {(prospect.reviewCount ?? 0) > 0 && (
+            <span className="mono-tag">{prospect.reviewCount} REVIEWS</span>
+          )}
+        </div>
+      )}
 
       {/* Tags */}
       <div className="mt-2.5 flex flex-wrap gap-1.5">
@@ -81,23 +108,12 @@ export function ProspectCard({
         </span>
       </div>
 
-      {/* Quality */}
+      {/* Quality only (reviews moved up to the rating row) */}
       <div className="mt-3 flex items-center justify-between">
-        <span
-          className="mono-tag flex items-center gap-1.5"
-          style={{ color: qualityColor }}
-        >
-          <span
-            className="h-1.5 w-1.5 rounded-full"
-            style={{ background: qualityColor }}
-          />
+        <span className="mono-tag flex items-center gap-1.5" style={{ color: qualityColor }}>
+          <span className="h-1.5 w-1.5 rounded-full" style={{ background: qualityColor }} />
           {prospect.quality}
         </span>
-        {prospect.reviewCount != null && prospect.reviewCount > 0 && (
-          <span className="mono-tag text-[color:var(--color-foreground-muted)]">
-            {prospect.reviewCount} REVIEWS
-          </span>
-        )}
       </div>
 
       {/* Deal value */}

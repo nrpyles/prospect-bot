@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, ExternalLink, Phone, Mail, MapPin, Trash2, Save, Sparkles, Search, Copy, Check, Layers } from "lucide-react";
+import { X, ExternalLink, Phone, Mail, MapPin, Trash2, Save, Sparkles, Search, Copy, Check, Layers, Plus, Minus, Target, Star as StarIcon, Users, Briefcase, Mail as MailIcon } from "lucide-react";
 import type { Prospect } from "@/lib/mock-prospects";
 import { buildResearchLinks } from "@/lib/research-links";
 import {
@@ -15,7 +15,9 @@ import {
   type Quality,
   type Industry,
   type Source,
+  type WorkspaceMode,
 } from "@/lib/pipeline";
+import { qualifyProspect, BAND_COLOR, BAND_LABEL } from "@/lib/qualification";
 import { AIDraftView } from "./AIDraftView";
 import { SequencePicker } from "./SequencePicker";
 import { FindEmailButton } from "./FindEmailButton";
@@ -27,12 +29,13 @@ type ProspectDrawerProps = {
   onClose: () => void;
   onSave: (updated: Prospect) => void;
   onDelete: (id: string) => void;
+  workspaceMode?: WorkspaceMode;
 };
 
 // Inline helper for DetailView email row — needs onSave callback so we
 // hoist the prospect/onSave refs down through a closure.
 
-export function ProspectDrawer({ prospect, onClose, onSave, onDelete }: ProspectDrawerProps) {
+export function ProspectDrawer({ prospect, onClose, onSave, onDelete, workspaceMode = "agency" }: ProspectDrawerProps) {
   const [draft, setDraft] = useState<Prospect | null>(prospect);
   const [mode, setMode] = useState<DrawerMode>("view");
   const [sequencePickerOpen, setSequencePickerOpen] = useState(false);
@@ -111,6 +114,7 @@ export function ProspectDrawer({ prospect, onClose, onSave, onDelete }: Prospect
           ) : (
             <DetailView
               prospect={draft}
+              workspaceMode={workspaceMode}
               onEmailFound={(email) => {
                 const updated = { ...draft, email };
                 setDraft(updated);
@@ -210,14 +214,19 @@ function Badge({ color, children }: { color: string; children: React.ReactNode }
 
 function DetailView({
   prospect,
+  workspaceMode = "agency",
   onEmailFound,
 }: {
   prospect: Prospect;
+  workspaceMode?: WorkspaceMode;
   onEmailFound?: (email: string) => void;
 }) {
   return (
     <div className="space-y-7">
-      {/* Research — prominent, top of drawer */}
+      {/* Why this prospect — top priority */}
+      <WhyThisProspectSection prospect={prospect} workspaceMode={workspaceMode} />
+
+      {/* Research — prominent */}
       <ResearchSection prospect={prospect} />
 
       {/* Contact */}
@@ -391,6 +400,114 @@ function FacebookIcon({ className }: { className?: string }) {
     <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
       <path d="M24 12.07C24 5.41 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.04V9.41c0-3.02 1.79-4.69 4.53-4.69 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.96.93-1.96 1.89v2.26h3.33l-.53 3.49h-2.8V24C19.6 23.1 24 18.1 24 12.07z" />
     </svg>
+  );
+}
+
+function WhyThisProspectSection({
+  prospect,
+  workspaceMode,
+}: {
+  prospect: Prospect;
+  workspaceMode: WorkspaceMode;
+}) {
+  const fit = qualifyProspect(prospect, workspaceMode);
+  const color = BAND_COLOR[fit.band];
+  const positives = fit.reasons.filter((r) => r.sign === "+");
+  const negatives = fit.reasons.filter((r) => r.sign === "-");
+
+  const categoryIcon: Record<string, React.ReactNode> = {
+    website: <Target className="h-3.5 w-3.5" />,
+    reviews: <Users className="h-3.5 w-3.5" />,
+    rating: <StarIcon className="h-3.5 w-3.5" />,
+    industry: <Briefcase className="h-3.5 w-3.5" />,
+    maturity: <Target className="h-3.5 w-3.5" />,
+    contact: <MailIcon className="h-3.5 w-3.5" />,
+  };
+
+  return (
+    <section>
+      <h3 className="eyebrow mb-3">WHY THIS PROSPECT</h3>
+      <div
+        className="rounded-2xl border p-4"
+        style={{
+          borderColor: `color-mix(in srgb, ${color} 35%, transparent)`,
+          background: `color-mix(in srgb, ${color} 8%, transparent)`,
+        }}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="mono-tag" style={{ color }}>
+              {BAND_LABEL[fit.band]} · {workspaceMode === "lending" ? "LENDING ICP" : "AGENCY ICP"}
+            </div>
+            <p className="mt-1.5 text-sm font-bold leading-snug text-foreground">
+              {fit.headline}
+            </p>
+          </div>
+          <div
+            className="flex h-14 w-14 flex-shrink-0 flex-col items-center justify-center rounded-xl border"
+            style={{
+              borderColor: `color-mix(in srgb, ${color} 50%, transparent)`,
+              background: `color-mix(in srgb, ${color} 14%, transparent)`,
+            }}
+          >
+            <div className="mono-stat text-xl leading-none" style={{ color }}>
+              {fit.score}
+            </div>
+            <div className="text-[9px] font-bold uppercase tracking-wider text-[color:var(--color-foreground-dim)]">
+              of 100
+            </div>
+          </div>
+        </div>
+
+        {positives.length > 0 && (
+          <div className="mt-4">
+            <div className="eyebrow mb-2 text-[10px]" style={{ color: "var(--color-status-won)" }}>
+              WHY IT&apos;S A FIT
+            </div>
+            <ul className="space-y-1.5">
+              {positives.map((r, i) => (
+                <li key={i} className="flex items-start justify-between gap-3 text-sm">
+                  <span className="flex items-start gap-2">
+                    <span className="mt-0.5 text-[color:var(--color-foreground-muted)]">
+                      {categoryIcon[r.category]}
+                    </span>
+                    <span className="text-foreground">{r.label}</span>
+                  </span>
+                  <span className="mono-stat flex-shrink-0 text-xs text-[color:var(--color-status-won)]">
+                    <Plus className="inline h-3 w-3" />
+                    {r.points}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {negatives.length > 0 && (
+          <div className="mt-4">
+            <div className="eyebrow mb-2 text-[10px] text-[color:var(--color-quality-terrible)]">
+              CAVEATS
+            </div>
+            <ul className="space-y-1.5">
+              {negatives.map((r, i) => (
+                <li key={i} className="flex items-start justify-between gap-3 text-sm">
+                  <span className="flex items-start gap-2">
+                    <span className="mt-0.5 text-[color:var(--color-foreground-muted)]">
+                      {categoryIcon[r.category]}
+                    </span>
+                    <span className="text-[color:var(--color-foreground-dim)]">{r.label}</span>
+                  </span>
+                  <span className="mono-stat flex-shrink-0 text-xs text-[color:var(--color-quality-terrible)]">
+                    <Minus className="inline h-3 w-3" />
+                    {Math.abs(r.points)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 

@@ -33,10 +33,12 @@ export function PipelineBoard({
   prospects,
   onProspectClick,
   onStatusChange,
+  workspaceMode = "agency",
 }: {
   prospects: Prospect[];
   onProspectClick: (prospect: Prospect) => void;
   onStatusChange: (prospectId: string, newStatus: ReturnType<typeof getDefaultStatusForStage>) => void;
+  workspaceMode?: "agency" | "lending";
 }) {
   const isMounted = useIsMounted();
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -70,6 +72,7 @@ export function PipelineBoard({
             stage={stage}
             prospects={byStage.get(stage.key) ?? []}
             onProspectClick={onProspectClick}
+            workspaceMode={workspaceMode}
           />
         ))}
       </div>
@@ -123,12 +126,13 @@ export function PipelineBoard({
             stage={stage}
             prospects={byStage.get(stage.key) ?? []}
             onProspectClick={onProspectClick}
+            workspaceMode={workspaceMode}
           />
         ))}
       </div>
 
       <DragOverlay>
-        {activeProspect ? <ProspectCard prospect={activeProspect} isDragOverlay /> : null}
+        {activeProspect ? <ProspectCard prospect={activeProspect} isDragOverlay workspaceMode={workspaceMode} /> : null}
       </DragOverlay>
     </DndContext>
   );
@@ -143,6 +147,7 @@ function StaticStageColumn({
   stage: Stage;
   prospects: Prospect[];
   onProspectClick: (p: Prospect) => void;
+  workspaceMode?: "agency" | "lending";
 }) {
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl border border-[color:var(--color-border)] bg-[color:#0D0D10]">
@@ -189,10 +194,12 @@ function StageColumn({
   stage,
   prospects,
   onProspectClick,
+  workspaceMode = "agency",
 }: {
   stage: Stage;
   prospects: Prospect[];
   onProspectClick: (p: Prospect) => void;
+  workspaceMode?: "agency" | "lending";
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.key });
 
@@ -235,6 +242,7 @@ function StageColumn({
                 key={p.id}
                 prospect={p}
                 onClick={() => onProspectClick(p)}
+                workspaceMode={workspaceMode}
               />
             ))
           )}

@@ -26,11 +26,13 @@ export function PipelineClient({
   orgId: _orgId,
   userFirstName,
   dueSequenceCount = 0,
+  workspaceMode = "agency",
 }: {
   initialProspects: Prospect[];
   orgId: string;
   userFirstName?: string | null;
   dueSequenceCount?: number;
+  workspaceMode?: "agency" | "lending";
 }) {
   const [prospects, setProspects] = useState<Prospect[]>(initialProspects);
   const [selected, setSelected] = useState<Prospect | null>(null);
@@ -221,6 +223,7 @@ export function PipelineClient({
                 prospects={filtered}
                 onProspectClick={setSelected}
                 onStatusChange={handleStatusChange}
+                workspaceMode={workspaceMode}
               />
             )}
             {filter.view === "list" && (
@@ -236,6 +239,7 @@ export function PipelineClient({
         onClose={() => setSelected(null)}
         onSave={handleSave}
         onDelete={handleDelete}
+        workspaceMode={workspaceMode}
       />
 
       <FindProspectsModal
