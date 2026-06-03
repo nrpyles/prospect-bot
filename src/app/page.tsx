@@ -146,9 +146,10 @@ export default function HomePage() {
           <div className="mx-auto max-w-5xl px-6 py-24 text-center lg:px-10 lg:py-32">
             <p className="eyebrow mb-8">THE THESIS</p>
             <p className="display-md text-[color:var(--color-foreground)]">
-              The best leads are the ones that{" "}
-              <span className="serif-italic text-[color:var(--color-accent)]">already have a problem</span>{" "}
-              you can see — and the worst ones are everyone else.
+              How you do{" "}
+              <span className="serif-italic text-[color:var(--color-accent)]">anything</span>{" "}
+              is how you do{" "}
+              <span className="serif-italic text-[color:var(--color-accent)]">everything</span>.
             </p>
           </div>
         </section>
