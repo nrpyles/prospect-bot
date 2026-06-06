@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Sparkles, RefreshCw, Copy, Check, AlertCircle, ArrowLeft } from "lucide-react";
 import type { Prospect } from "@/lib/mock-prospects";
+import { SendViaGmailButton } from "./SendViaGmailButton";
 
 type Draft = { subject: string; body: string; reasoning: string };
 
@@ -186,13 +187,12 @@ export function AIDraftView({
                 </>
               )}
             </button>
-            <button
-              disabled
-              className="inline-flex items-center gap-2 rounded-xl border border-[color:var(--color-border-strong)] bg-[color:var(--color-surface)] px-3 py-2 text-sm font-semibold text-[color:var(--color-foreground-dim)] opacity-50"
-              title="Gmail send — Phase 4.5"
-            >
-              Send via Gmail
-            </button>
+            <SendViaGmailButton
+              prospectId={prospect.id}
+              to={prospect.email}
+              subject={draft.subject}
+              body={draft.body}
+            />
           </div>
         </>
       ) : null}

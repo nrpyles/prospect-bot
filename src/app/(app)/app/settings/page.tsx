@@ -4,8 +4,14 @@ import { getUserContext } from "@/lib/server-context";
 import { db } from "@/db";
 import { organizations } from "@/db/schema";
 import { SettingsClient } from "./SettingsClient";
+import { GmailConnect } from "./GmailConnect";
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ gmail?: string }>;
+}) {
+  const { gmail } = await searchParams;
   const ctx = await getUserContext();
   if (!ctx || !db) {
     return (
@@ -33,9 +39,18 @@ export default async function SettingsPage() {
         </p>
       </div>
 
+      {/* Gmail connection — server-driven status banner from ?gmail= param */}
+      <section className="mb-8">
+        <h2 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[color:var(--color-foreground-dim)]">
+          <span className="text-[color:var(--color-accent)]">✉</span>
+          Send from Gmail
+        </h2>
+        <GmailConnect statusParam={gmail} />
+      </section>
+
       <SettingsClient
         orgName={org?.name ?? "My Workspace"}
-        workspaceMode={(org?.workspaceMode ?? "agency") as "agency" | "lending"}
+        workspaceMode={(org?.workspaceMode ?? "agency") as "agency" | "lending" | "contractor"}
         senderName={org?.senderName ?? ""}
         senderCompany={org?.senderCompany ?? ""}
         googleMapsApiKey={org?.googleMapsApiKey ?? ""}

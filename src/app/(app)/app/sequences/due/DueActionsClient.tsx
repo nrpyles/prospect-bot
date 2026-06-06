@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import type { Prospect } from "@/lib/mock-prospects";
 import { advanceEnrollmentAction, unenrollAction } from "../actions";
+import { SendViaGmailButton } from "@/components/pipeline/SendViaGmailButton";
 
 export type DueItem = {
   enrollmentId: string;
@@ -254,9 +255,19 @@ export function DueActionsClient({ items }: { items: DueItem[] }) {
                       )}
                     </button>
                   )}
+                  {resolved && (
+                    <SendViaGmailButton
+                      prospectId={item.prospect.id}
+                      to={item.prospect.email}
+                      subject={resolved.subject}
+                      body={resolved.body}
+                      size="sm"
+                      onSent={() => markSent(item)}
+                    />
+                  )}
                   <button
                     onClick={() => copy(item)}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-[color:var(--color-accent)] px-3 py-1.5 text-xs font-bold text-black transition-all hover:bg-[color:var(--color-accent-hover)]"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[color:var(--color-border-strong)] bg-[color:var(--color-surface)] px-3 py-1.5 text-xs font-bold transition-all hover:border-[color:var(--color-accent)]"
                   >
                     {copied === item.enrollmentId ? (
                       <>
@@ -266,16 +277,17 @@ export function DueActionsClient({ items }: { items: DueItem[] }) {
                     ) : (
                       <>
                         <Copy className="h-3 w-3" />
-                        Copy email
+                        Copy
                       </>
                     )}
                   </button>
                   <button
                     onClick={() => markSent(item)}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-[color:var(--color-status-won)]/40 bg-[color:var(--color-status-won)]/10 px-3 py-1.5 text-xs font-bold text-[color:var(--color-status-won)] transition-colors hover:bg-[color:var(--color-status-won)]/20"
+                    title="Mark sent without Gmail (if you sent manually)"
                   >
                     <Check className="h-3 w-3" />
-                    Mark sent → advance
+                    Mark sent
                   </button>
                   <button
                     onClick={() => pause(item)}
