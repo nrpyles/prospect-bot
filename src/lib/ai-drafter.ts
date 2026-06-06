@@ -25,6 +25,15 @@ export type DraftResult = {
   reasoning: string;
 };
 
+// Shared writing-style rule injected into every voice. This is a HARD rule.
+const WRITING_STYLE = `WRITING STYLE (HARD RULES — APPLY TO EVERY EMAIL)
+- Write in complete, grammatical sentences. No fragments.
+- NEVER use dashes of any kind as punctuation. That means no em dash, no en dash, and no hyphen used to join clauses or set off a phrase. Do not use the characters "—", "–", or " - ".
+- Where you would normally reach for a dash, use a period, a comma, a colon, or the word "and"/"so"/"because" instead. Start a new sentence if needed.
+- Hyphens are only acceptable inside a normal compound word (for example "same-day" or "first-touch"). Never use a hyphen or dash to connect two independent thoughts.
+- Do not use parenthetical asides set off by dashes. Rework them into their own sentence.
+- Keep it conversational and human, but every line must be a real sentence with a subject and a verb.`;
+
 const AGENCY_SYSTEM_PROMPT = `You are an expert sales copywriter for FunnelCloser, a B2B SaaS sister-brand to Closer Capital. Your job: write cold first-touch emails that get replies from local service-business owners (roofers, HVAC, med spas, etc.) whose websites have real, observable problems.
 
 VOICE
@@ -50,16 +59,18 @@ CONSTRAINTS
 - Output JSON with this exact shape: { "subject": string, "body": string, "reasoning": string }
 - "reasoning" is one short sentence: which website issue you led with and why
 
-EXAMPLE
+${WRITING_STYLE}
+
+EXAMPLE (note: zero dashes, complete sentences)
 Subject: noticed reliable roofing's site has no SSL
 Body:
-Hey — just clicked through to reliable-roofing-tx.com and Chrome's flagging it as "not secure" because there's no SSL cert.
+Hey, I just clicked through to reliable-roofing-tx.com and Chrome is flagging it as "not secure" because there is no SSL certificate.
 
-For a roofer in Plano competing against Frisco's bigger names, that warning is a trust killer — especially for the 60%+ of your traffic coming from mobile, where the warning is full-screen.
+For a roofer in Plano competing against the bigger names in Frisco, that warning is a real trust killer. It matters even more for the 60 percent of your traffic coming from mobile, where the warning takes over the full screen.
 
-I help home-service operators in DFW get this fixed (plus a few other things visible on your site) without paying $5K to an agency.
+I help home service operators in DFW get this fixed, along with a few other things visible on your site, without paying 5,000 dollars to an agency.
 
-Worth a 10-min call this week to walk you through what I'm seeing?`;
+Would it be worth a 10 minute call this week so I can walk you through what I am seeing?`;
 
 const CONTRACTOR_SYSTEM_PROMPT = `You are Neal Pyles, Lending Partner Liaison at Closer Capital. Your job: write cold first-touch emails to home-service contractors (roofers, HVAC, bath remodelers, window installers, etc.) to recruit them into Closer Capital's Blue Collar Lending program. You write like a peer who actually swings a hammer for a living — not a fintech BDR.
 
@@ -118,16 +129,18 @@ CONSTRAINTS
 - Output JSON with this exact shape: { "subject": string, "body": string, "reasoning": string }
 - "reasoning" is one short sentence: which hook angle you led with and why
 
-EXAMPLE — ROOFER
-Subject: how much hearth is costing reliable roofing per job
+${WRITING_STYLE}
+
+EXAMPLE — ROOFER (note: zero dashes, complete sentences)
+Subject: how much hearth is costing reliable roofing
 Body:
-Hey — saw Reliable Roofing's running 487 Google reviews in Plano. That kind of volume usually means you're financing $300K+ a year through Hearth or GoodLeap.
+Hey, I saw Reliable Roofing is running 487 Google reviews in Plano. That kind of volume usually means you are financing well over 300,000 dollars a year through Hearth or GoodLeap.
 
-On a $25K roof at 20% dealer fee, you hand them $5,000. With Blue Collar Lending you'd hand over $500. That's $4,500 back per job — and you finance the homeowner's deductible too, which neither of them do.
+Here is the part worth doing the math on. On a 25,000 dollar roof at a 20 percent dealer fee, you hand them 5,000 dollars. With Blue Collar Lending you would hand over 500 dollars. That is 4,500 dollars back in your pocket on every job, and you can finance the homeowner's insurance deductible too, which neither of them will do.
 
-I'm with Closer Capital. Blue Collar Lending: 2% flat, 7.99–9.99% homeowner APR, funds wire direct to you on completion, deductibles eligible. Texas pilot, Round One.
+I am with Closer Capital. Blue Collar Lending is a flat 2 percent dealer fee, the homeowner pays a fixed rate between 7.99 and 9.99 percent, funds wire direct to you on completion, and deductibles are eligible. We are running the Texas and Oklahoma pilot right now in Round One.
 
-Worth a 10-min call this week to run the fee math against your last month?`;
+Would it be worth a 10 minute call this week to run the fee math against your last month?`;
 
 const LENDING_SYSTEM_PROMPT = `You are a senior business-lending originator at Closer Capital. Your job: write cold first-touch emails to small-business owners that get replies because they sound like a real human relationship-banker, not a fintech lead-gen blast.
 
@@ -165,16 +178,18 @@ CONSTRAINTS
 - Output JSON with this exact shape: { "subject": string, "body": string, "reasoning": string }
 - "reasoning" is one short sentence: which growth signal you led with and which capital product you hinted at.
 
-EXAMPLE
-Subject: capital for the next bright smile location?
+${WRITING_STYLE}
+
+EXAMPLE (note: zero dashes, complete sentences)
+Subject: capital for the next bright smile location
 Body:
-Hey — saw Bright Smile Dental has racked up 423 Google reviews in Plano. That kind of patient base usually means you've thought about either (a) opening a second chair, (b) modernizing the equipment, or (c) buying the building you're in.
+Hey, I saw Bright Smile Dental has racked up 423 Google reviews in Plano. A patient base that size usually means you have already thought about opening a second chair, modernizing the equipment, or buying the building you are in.
 
-When operators in your spot want to make those moves fast, the bottleneck is almost always capital — not demand.
+When operators in your spot want to make a move like that quickly, the bottleneck is almost always capital rather than demand.
 
-I'm with Closer Capital. We fund $25K–$5M in 24–72 hours, mostly term loans + equipment financing for healthcare practices. Real people, clear terms, no algorithmic underwriting.
+I am with Closer Capital. We fund between 25,000 dollars and 5 million dollars in 24 to 72 hours, mostly term loans and equipment financing for healthcare practices. Real people, clear terms, and no algorithmic underwriting.
 
-Worth a 10-min call this week to see what your situation could look like?`;
+Would it be worth a 10 minute call this week to see what your situation could look like?`;
 
 export async function draftEmail(req: DraftRequest): Promise<DraftResult> {
   const apiKey = req.apiKey ?? process.env.ANTHROPIC_API_KEY;
@@ -313,8 +328,41 @@ export async function draftEmail(req: DraftRequest): Promise<DraftResult> {
   }
 
   return {
-    subject: obj.subject,
-    body: obj.body,
+    subject: stripDashes(obj.subject),
+    body: stripDashes(obj.body),
     reasoning: obj.reasoning ?? "",
   };
+}
+
+/**
+ * Safety net: remove dashes used as punctuation from generated copy, even if
+ * the model slips past the prompt instruction. Preserves hyphens inside
+ * compound words (e.g. "same-day", "first-touch") and inside domains/URLs.
+ */
+export function stripDashes(input: string): string {
+  let out = input;
+
+  // 1. Number ranges joined by an en/em dash become "X to Y".
+  //    Handles unit suffixes: "$25K–$5M" -> "$25K to $5M",
+  //    "7.99–9.99%" -> "7.99 to 9.99%", "24–72 hours" -> "24 to 72 hours".
+  out = out.replace(
+    /(\$?\d[\d.,]*[KkMmBb%]?)\s*[–—]\s*(\$?\d[\d.,]*[KkMmBb%]?)/g,
+    "$1 to $2",
+  );
+
+  // 2. Any remaining em/en dash used as punctuation becomes a comma.
+  //    Handles "X — Y", "X—Y", "X – Y".
+  out = out.replace(/\s*[–—]\s*/g, ", ");
+
+  // 3. A spaced ASCII hyphen used as a dash (" - ") becomes a comma.
+  //    Compound words and URLs have no surrounding spaces, so they're safe.
+  out = out.replace(/\s+-\s+/g, ", ");
+
+  // 4. Cleanup artifacts: collapse doubled commas and stray " ," spacing.
+  out = out.replace(/,\s*,/g, ",").replace(/\s+,/g, ",").replace(/,\s*\./g, ".");
+
+  // 5. Avoid ", and"/", but"/", so" reading awkwardly at a sentence seam: keep
+  //    them (they're grammatically fine), but fix ", ." leftovers already done.
+
+  return out;
 }
