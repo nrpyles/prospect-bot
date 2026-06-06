@@ -12,6 +12,7 @@ import {
   advanceEnrollment as dbAdvance,
   removeEnrollment as dbRemoveEnrollment,
 } from "@/db/sequences";
+import { getTemplate } from "@/lib/sequence-templates";
 
 const stepSchema = z.object({
   kind: z.enum(["email", "wait"]),
@@ -27,6 +28,32 @@ export async function createSequenceAction(input: { name: string; description?: 
   const result = await dbCreate(ctx.orgId, input.name.trim() || "Untitled sequence", input.description);
   revalidatePath("/app/sequences");
   return result;
+}
+
+export async function createFromTemplateAction(templateId: string) {
+  const ctx = await getUserContext();
+  if (!ctx) throw new Error("Unauthorized");
+
+  const template = getTemplate(templateId);
+  if (!template) throw new Error("Template not found");
+
+  const seq = await dbCreate(ctx.orgId, template.name, template.description);
+
+  await replaceSequenceSteps(
+    ctx.orgId,
+    seq.id,
+    template.steps.map((s, i) => ({
+      position: i,
+      kind: s.kind,
+      subject: s.kind === "email" ? s.subject : null,
+      body: s.kind === "email" ? s.body : null,
+      useAiDraft: s.kind === "email" ? s.useAiDraft : false,
+      waitDays: s.kind === "wait" ? s.waitDays : null,
+    })),
+  );
+
+  revalidatePath("/app/sequences");
+  return seq;
 }
 
 export async function updateSequenceAction(

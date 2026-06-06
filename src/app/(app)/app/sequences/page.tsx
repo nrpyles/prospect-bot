@@ -1,8 +1,13 @@
 import Link from "next/link";
+import { eq } from "drizzle-orm";
 import { Plus, Users, Repeat, Pause } from "lucide-react";
 import { getUserContext } from "@/lib/server-context";
 import { listSequences } from "@/db/sequences";
+import { db } from "@/db";
+import { organizations } from "@/db/schema";
+import type { WorkspaceMode } from "@/lib/pipeline";
 import { CreateSequenceButton } from "./CreateSequenceButton";
+import { TemplateButton } from "./TemplateButton";
 
 export default async function SequencesPage() {
   const ctx = await getUserContext();
@@ -14,7 +19,17 @@ export default async function SequencesPage() {
     );
   }
 
-  const seqs = await listSequences(ctx.orgId);
+  const [seqs, orgRow] = await Promise.all([
+    listSequences(ctx.orgId),
+    db
+      ? db
+          .select({ mode: organizations.workspaceMode })
+          .from(organizations)
+          .where(eq(organizations.id, ctx.orgId))
+          .limit(1)
+      : Promise.resolve([]),
+  ]);
+  const workspaceMode = (orgRow[0]?.mode ?? "agency") as WorkspaceMode;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 lg:px-8 lg:py-12">
@@ -29,11 +44,14 @@ export default async function SequencesPage() {
             Today&apos;s Playbook when it&apos;s due — draft, send, mark, advance.
           </p>
         </div>
-        <CreateSequenceButton />
+        <div className="flex flex-wrap items-center gap-2">
+          <TemplateButton workspaceMode={workspaceMode} />
+          <CreateSequenceButton />
+        </div>
       </div>
 
       {seqs.length === 0 ? (
-        <EmptyState />
+        <EmptyState workspaceMode={workspaceMode} />
       ) : (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {seqs.map((seq) => {
@@ -95,7 +113,7 @@ export default async function SequencesPage() {
   );
 }
 
-function EmptyState() {
+function EmptyState({ workspaceMode }: { workspaceMode: WorkspaceMode }) {
   return (
     <div className="rounded-3xl border border-dashed border-[color:var(--color-border-strong)] bg-[color:var(--color-surface)] p-10 text-center lg:p-16">
       <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[color:var(--color-accent-soft)]">
@@ -105,10 +123,12 @@ function EmptyState() {
         No sequences yet
       </h2>
       <p className="mx-auto mt-2 max-w-md text-sm text-[color:var(--color-foreground-dim)]">
-        Build your first sequence — email → wait → follow-up → wait → breakup.
-        Then enroll prospects from your pipeline.
+        {workspaceMode === "contractor"
+          ? "Start with the Blue Collar Lending — Round One template (the 5-touch playbook cadence), or build your own."
+          : "Start from a pre-written template, or build your own — email → wait → follow-up → wait → breakup."}
       </p>
-      <div className="mt-6">
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+        <TemplateButton workspaceMode={workspaceMode} />
         <CreateSequenceButton variant="primary" />
       </div>
     </div>
