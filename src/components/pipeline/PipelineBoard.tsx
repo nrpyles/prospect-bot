@@ -38,7 +38,7 @@ export function PipelineBoard({
   prospects: Prospect[];
   onProspectClick: (prospect: Prospect) => void;
   onStatusChange: (prospectId: string, newStatus: ReturnType<typeof getDefaultStatusForStage>) => void;
-  workspaceMode?: "agency" | "lending";
+  workspaceMode?: "agency" | "lending" | "contractor";
 }) {
   const isMounted = useIsMounted();
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -147,7 +147,7 @@ function StaticStageColumn({
   stage: Stage;
   prospects: Prospect[];
   onProspectClick: (p: Prospect) => void;
-  workspaceMode?: "agency" | "lending";
+  workspaceMode?: "agency" | "lending" | "contractor";
 }) {
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl border border-[color:var(--color-border)] bg-[color:#0D0D10]">
@@ -199,7 +199,7 @@ function StageColumn({
   stage: Stage;
   prospects: Prospect[];
   onProspectClick: (p: Prospect) => void;
-  workspaceMode?: "agency" | "lending";
+  workspaceMode?: "agency" | "lending" | "contractor";
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.key });
 

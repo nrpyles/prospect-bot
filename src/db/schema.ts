@@ -61,6 +61,7 @@ export const sequenceStepKindEnum = pgEnum("sequence_step_kind", [
 export const workspaceModeEnum = pgEnum("workspace_mode", [
   "agency", // marketing agency hunting bad-website prospects
   "lending", // business lender hunting mature SMBs needing capital
+  "contractor", // Closer Capital Blue Collar Lending — recruit contractors as partners
 ]);
 
 export const messageDirectionEnum = pgEnum("message_direction", [

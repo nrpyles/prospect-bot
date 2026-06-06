@@ -32,7 +32,7 @@ export function PipelineClient({
   orgId: string;
   userFirstName?: string | null;
   dueSequenceCount?: number;
-  workspaceMode?: "agency" | "lending";
+  workspaceMode?: "agency" | "lending" | "contractor";
 }) {
   const [prospects, setProspects] = useState<Prospect[]>(initialProspects);
   const [selected, setSelected] = useState<Prospect | null>(null);

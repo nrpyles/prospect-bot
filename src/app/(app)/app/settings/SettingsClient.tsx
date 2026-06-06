@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Check, Eye, EyeOff, Save, ExternalLink, Sparkles, Key, Building, Landmark, Briefcase } from "lucide-react";
+import { Check, Eye, EyeOff, Save, ExternalLink, Sparkles, Key, Building, Landmark, Briefcase, Hammer } from "lucide-react";
 import { updateOrgApiKeysAction } from "./actions";
 import type { WorkspaceMode } from "@/lib/pipeline";
 
@@ -16,6 +16,8 @@ type SettingsClientProps = {
   email: string;
   hasAnthropicKey: boolean;
 };
+
+// (Hammer icon import lives above with the other lucide imports.)
 
 export function SettingsClient(props: SettingsClientProps) {
   const [mode, setMode] = useState<WorkspaceMode>(props.workspaceMode);
@@ -53,14 +55,14 @@ export function SettingsClient(props: SettingsClientProps) {
         <p className="-mt-1 mb-3 text-xs text-[color:var(--color-foreground-dim)]">
           Pick your ICP. Changes the AI drafter voice and search defaults across the whole app.
         </p>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <ModeCard
             active={mode === "agency"}
             onClick={() => setMode("agency")}
             icon={<Sparkles className="h-5 w-5" />}
             title="Marketing Agency"
             tagline="FunnelCloser default"
-            description="Find local service businesses with weak websites. AI pitches a fix (SSL, mobile, lead capture). Default qualities: No Website / Terrible / Outdated."
+            description="Find local service businesses with weak websites. AI pitches a fix (SSL, mobile, lead capture)."
           />
           <ModeCard
             active={mode === "lending"}
@@ -68,7 +70,15 @@ export function SettingsClient(props: SettingsClientProps) {
             icon={<Landmark className="h-5 w-5" />}
             title="Business Lending"
             tagline="Closer Capital voice"
-            description="Find mature SMBs with revenue + reviews. AI pitches $25K–$5M in 24–72hr capital. Default qualities: Decent / Good. Min 50 reviews."
+            description="Find mature SMBs with revenue + reviews. AI pitches $25K–$5M in 24–72hr capital. Min 50 reviews."
+          />
+          <ModeCard
+            active={mode === "contractor"}
+            onClick={() => setMode("contractor")}
+            icon={<Hammer className="h-5 w-5" />}
+            title="Blue Collar Lending"
+            tagline="Closer Capital contractor partnerships"
+            description="Find roofers, HVAC, bath/window contractors. AI pitches 2% dealer fee vs Hearth's 20%. Deductibles play for roofers."
           />
         </div>
       </Section>
@@ -93,7 +103,11 @@ export function SettingsClient(props: SettingsClientProps) {
               type="text"
               value={senderCompany}
               onChange={(e) => setSenderCompany(e.target.value)}
-              placeholder={mode === "lending" ? "Closer Capital" : "FunnelCloser"}
+              placeholder={
+                mode === "lending" || mode === "contractor"
+                  ? "Closer Capital"
+                  : "FunnelCloser"
+              }
               className={inputClass}
             />
           </Field>

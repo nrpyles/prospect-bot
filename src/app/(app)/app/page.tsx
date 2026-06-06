@@ -48,7 +48,7 @@ export default async function DashboardPage() {
       : Promise.resolve([]),
   ]);
 
-  const workspaceMode = (orgRow[0]?.mode ?? "agency") as "agency" | "lending";
+  const workspaceMode = (orgRow[0]?.mode ?? "agency") as "agency" | "lending" | "contractor";
 
   return (
     <PipelineClient

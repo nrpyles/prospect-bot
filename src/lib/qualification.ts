@@ -7,6 +7,7 @@
  */
 import type { Prospect } from "./mock-prospects";
 import type { WorkspaceMode, Quality } from "./pipeline";
+import { BLUE_COLLAR_ELIGIBLE_INDUSTRIES } from "./pipeline";
 
 export type FitReason = {
   /** Human-readable label, e.g. "Excellent reviews (312)". */
@@ -251,21 +252,206 @@ function qualifyLending(p: Prospect): FitVerdict {
 }
 
 function headlineFor(p: Prospect, band: FitVerdict["band"], mode: WorkspaceMode): string {
+  if (mode === "contractor") {
+    if (band === "excellent") return "Prime Blue Collar Lending partner — eligible vertical, big volume, strong rep.";
+    if (band === "strong") return "Strong contractor partner — likely paying Hearth/GoodLeap 20%+ today.";
+    if (band === "decent") return "Worth a touch — eligible vertical but smaller operator.";
+    if (band === "weak" && BLUE_COLLAR_ELIGIBLE_INDUSTRIES.has(p.industry)) {
+      return "Eligible vertical but limited volume — low margin recapture.";
+    }
+    return "Not eligible for Blue Collar Lending program.";
+  }
   if (mode === "agency") {
     if (band === "excellent") return "Textbook agency target — bad site, alive business.";
     if (band === "strong") return "Strong fit — clear website upside, healthy reputation.";
     if (band === "decent") return "Worth a touch — some signals, not perfect.";
     return "Marginal — site is fine or business is too early.";
-  } else {
-    if (band === "excellent") return "Prime lending candidate — mature, well-reviewed, capital-ready vertical.";
-    if (band === "strong") return "Strong lending fit — established business with growth signals.";
-    if (band === "decent") return "Worth a conversation — some maturity but not prime.";
-    return "Too early — limited maturity signals.";
   }
+  if (band === "excellent") return "Prime lending candidate — mature, well-reviewed, capital-ready vertical.";
+  if (band === "strong") return "Strong lending fit — established business with growth signals.";
+  if (band === "decent") return "Worth a conversation — some maturity but not prime.";
+  return "Too early — limited maturity signals.";
+}
+
+/**
+ * Contractor mode: Closer Capital's Blue Collar Lending program.
+ * Targets high-volume contractors in eligible verticals so Neal can recruit
+ * them as financing partners (2% dealer fee vs 15-35% from Hearth/GoodLeap).
+ *
+ * Scoring weights HEAVILY toward:
+ *  - Industry eligibility (Roofing/HVAC/Bath/Windows/Doors/Gutters/etc.)
+ *  - Job volume signals (lots of reviews = lots of jobs = lots of 2% fees)
+ *  - Credibility (rating ≥ 4.0 means homeowners trust them)
+ */
+function qualifyContractor(p: Prospect): FitVerdict {
+  const reasons: FitReason[] = [];
+  let score = 10; // low base — must earn it
+
+  const eligible = BLUE_COLLAR_ELIGIBLE_INDUSTRIES.has(p.industry);
+
+  if (eligible) {
+    // Massive boost for eligible verticals — these are THE target industries.
+    let industryPoints = 30;
+    let industryLabel = `Blue Collar Lending eligible (${p.industry})`;
+
+    // Bonuses for highest-value verticals (where 2% fee math is most painful)
+    if (p.industry === "Roofing") {
+      industryPoints = 38;
+      industryLabel = `Roofing — deductible play + storm-driven demand`;
+    } else if (p.industry === "HVAC") {
+      industryPoints = 36;
+      industryLabel = `HVAC — financing closes more $10K+ jobs`;
+    } else if (p.industry === "Bath Remodel") {
+      industryPoints = 34;
+      industryLabel = `Bath Remodel — average ticket fits perfectly in $5K–$50K`;
+    } else if (p.industry === "Window Installation") {
+      industryPoints = 32;
+      industryLabel = `Window Installation — high-ticket Hearth competitor`;
+    }
+
+    reasons.push({
+      label: industryLabel,
+      points: industryPoints,
+      category: "industry",
+      sign: "+",
+    });
+    score += industryPoints;
+  } else {
+    // Hard penalty — non-eligible industries should rarely show up here
+    reasons.push({
+      label: `Not eligible for Blue Collar Lending (${p.industry})`,
+      points: -30,
+      category: "industry",
+      sign: "-",
+    });
+    score -= 30;
+  }
+
+  // Job volume — proxy for how much 2% fee margin Neal recaptures.
+  // Reviews → jobs done → likely current financing volume.
+  const rc = p.reviewCount ?? 0;
+  if (rc >= 500) {
+    reasons.push({
+      label: `Massive volume (${rc} reviews — likely $500K+/yr in financed work)`,
+      points: 30,
+      category: "reviews",
+      sign: "+",
+    });
+    score += 30;
+  } else if (rc >= 200) {
+    reasons.push({
+      label: `High volume (${rc} reviews — strong financing pipeline)`,
+      points: 22,
+      category: "reviews",
+      sign: "+",
+    });
+    score += 22;
+  } else if (rc >= 100) {
+    reasons.push({
+      label: `Solid operator (${rc} reviews)`,
+      points: 14,
+      category: "reviews",
+      sign: "+",
+    });
+    score += 14;
+  } else if (rc >= 50) {
+    reasons.push({
+      label: `Active contractor (${rc} reviews)`,
+      points: 8,
+      category: "reviews",
+      sign: "+",
+    });
+    score += 8;
+  } else if (rc < 20) {
+    reasons.push({
+      label: `Low job volume (${rc} reviews — not enough margin to recapture)`,
+      points: -8,
+      category: "reviews",
+      sign: "-",
+    });
+    score -= 8;
+  }
+
+  // Credibility — homeowners need to trust them for financing to convert.
+  const rating = parseRating(p.rating);
+  if (rating !== null) {
+    if (rating >= 4.7) {
+      reasons.push({
+        label: `Top-tier reputation (${rating}★) — homeowners will trust the upsell`,
+        points: 12,
+        category: "rating",
+        sign: "+",
+      });
+      score += 12;
+    } else if (rating >= 4.5) {
+      reasons.push({
+        label: `Strong reputation (${rating}★)`,
+        points: 8,
+        category: "rating",
+        sign: "+",
+      });
+      score += 8;
+    } else if (rating >= 4.0) {
+      reasons.push({
+        label: `Solid reputation (${rating}★)`,
+        points: 4,
+        category: "rating",
+        sign: "+",
+      });
+      score += 4;
+    } else if (rating < 3.5) {
+      reasons.push({
+        label: `Reputation risk (${rating}★) — harder financing close`,
+        points: -10,
+        category: "rating",
+        sign: "-",
+      });
+      score -= 10;
+    }
+  }
+
+  // Has website — signals professional operation worth partnering with
+  if (p.website && p.quality !== "No Website") {
+    reasons.push({
+      label: "Professional setup (has website)",
+      points: 4,
+      category: "maturity",
+      sign: "+",
+    });
+    score += 4;
+  }
+
+  // Contact details
+  if (p.phone) {
+    reasons.push({
+      label: "Phone visible — easy partner outreach",
+      points: 3,
+      category: "contact",
+      sign: "+",
+    });
+    score += 3;
+  }
+  if (p.email) {
+    reasons.push({
+      label: "Direct email found — fast partner pitch",
+      points: 5,
+      category: "contact",
+      sign: "+",
+    });
+    score += 5;
+  }
+
+  const finalScore = clamp(score);
+  const band = bandFor(finalScore);
+  const headline = headlineFor(p, band, "contractor");
+
+  return { score: finalScore, band, headline, reasons };
 }
 
 export function qualifyProspect(p: Prospect, mode: WorkspaceMode): FitVerdict {
-  return mode === "lending" ? qualifyLending(p) : qualifyAgency(p);
+  if (mode === "contractor") return qualifyContractor(p);
+  if (mode === "lending") return qualifyLending(p);
+  return qualifyAgency(p);
 }
 
 export const BAND_COLOR: Record<FitVerdict["band"], string> = {

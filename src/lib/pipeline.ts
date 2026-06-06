@@ -30,7 +30,7 @@ export const QUALITIES = [
 ] as const;
 export type Quality = (typeof QUALITIES)[number];
 
-export const WORKSPACE_MODES = ["agency", "lending"] as const;
+export const WORKSPACE_MODES = ["agency", "lending", "contractor"] as const;
 export type WorkspaceMode = (typeof WORKSPACE_MODES)[number];
 
 /**
@@ -62,6 +62,10 @@ export const INDUSTRIES = [
   "Carpet Cleaning",
   "Restoration",
   "Mold Remediation",
+  "Bath Remodel",
+  "Window Installation",
+  "Door Installation",
+  "Gutter Installation",
 
   // ── Food & Beverage ──
   "Restaurant",
@@ -189,7 +193,30 @@ export const INDUSTRY_PRESETS: Record<WorkspaceMode, { label: string; industries
       "Dentist", "Chiropractor", "Optometry", "Insurance Agency", "Real Estate",
     ],
   },
+  contractor: {
+    label: "Blue Collar Lending eligible contractors",
+    industries: [
+      "Roofing", "HVAC", "Bath Remodel", "Window Installation", "Door Installation",
+      "Gutter Installation", "Garage Doors", "Fencing", "Restoration", "Remodeling",
+      "General Contractor",
+    ],
+  },
 };
+
+/** Industries eligible for Blue Collar Lending financing (page 1 of playbook). */
+export const BLUE_COLLAR_ELIGIBLE_INDUSTRIES: ReadonlySet<Industry> = new Set([
+  "Roofing",
+  "HVAC",
+  "Bath Remodel",
+  "Window Installation",
+  "Door Installation",
+  "Gutter Installation",
+  "Garage Doors",
+  "Fencing",
+  "Restoration",
+  "Remodeling",
+  "General Contractor",
+]);
 
 export const SOURCES = [
   "Google Maps Bot", "Google Maps", "Facebook Group", "Google Page 2",
