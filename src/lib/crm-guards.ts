@@ -13,6 +13,15 @@ export function prospectPatchInput(input: unknown): unknown {
   return input;
 }
 
+// Optional form URLs must accept a blank string. Refinements must not throw:
+// a native URL parsing exception otherwise aborts the entire prospect save.
+export function isOptionalHttpUrl(value: string): boolean {
+  if (value === '') return true;
+  try {
+    return ['http:', 'https:'].includes(new URL(value).protocol);
+  } catch { return false; }
+}
+
 export function hasUnresolvedDelivery(intents: readonly {state: string}[]): boolean {
   return intents.some(intent => intent.state === 'unknown' || intent.state === 'sending');
 }
