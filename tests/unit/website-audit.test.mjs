@@ -26,3 +26,10 @@ test('mixed DNS results fail closed and oversized content is rejected',async()=>
  await assert.rejects(safe.safeFetchPage('https://example.com',{policy:{resolve:async()=>[{address:'8.8.8.8',family:4},{address:'10.0.0.1',family:4}],request:async()=>{throw new Error('should not fetch');}}}),/Private/);
  await assert.rejects(safe.safeFetchPage('https://example.com',{policy:{resolve:async()=>[{address:'8.8.8.8',family:4}],request:async()=>({status:200,html:'x'.repeat(1048577)})}}),/limit/);
 });
+
+test('a supplied researched homepage retains static SEO and internal-link check reporting',async()=>{
+ const r=await audit.inspectWebsite('https://example.com',{page:{url:'https://www.example.com/',html:'<title>Example</title><h1>Lighting</h1>'}});
+ assert.equal(r.websiteUrl,'https://example.com');assert.equal(r.state,'inspected');
+ assert.ok(r.checksRun.includes('Internal links checked: 0'));
+ assert.ok(r.findings.some(f=>f.code==='missing_description'));
+});

@@ -43,6 +43,12 @@ export function auditMatchesWebsite(audit: AuditResult, website: string | null |
   return audit.websiteUrl !== undefined && !websiteChanged(audit.websiteUrl, website);
 }
 
+export function mergeWebsiteResearch(next: AuditResult, previous: AuditResult | null): AuditResult {
+  if (!previous || !auditMatchesWebsite(previous, next.websiteUrl) || !previous.siteResearch) return next;
+  const siteResearch = next.siteResearch ?? previous.siteResearch;
+  return {...next, siteResearch: {...siteResearch, recentDrafts: previous.siteResearch.recentDrafts?.slice(-6) ?? siteResearch.recentDrafts}};
+}
+
 export function canContactProspect(prospect: {status: string; outreachDisposition?: string | null}): boolean {
   return prospect.status !== 'Not Interested' && (prospect.outreachDisposition ?? 'active') === 'active';
 }

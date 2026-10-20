@@ -35,7 +35,7 @@ test('sequence delivery commits advancement once and stale actions cannot repeat
 
 test('website changes discard current research and unknown delivery prevents a new intent', {skip:!process.env.TEST_DATABASE_URL&&'TEST_DATABASE_URL is not configured; database validation was not run'}, async()=>isolatedDatabase(async sql=>{
   const {updateProspect}=await import('../../src/db/prospects.ts');
-  const {saveFindings,getResearch}=await import('../../src/db/research.ts');
+  const {saveFindings,getResearch,savePersonalizedDraft}=await import('../../src/db/research.ts');
   const {auditHtml}=await import('../../src/lib/research/website-audit.ts');
   const {prepareSend,executeSend}=await import('../../src/db/send-intents.ts');
   const {saveGmailConnection}=await import('../../src/db/connections.ts');
@@ -43,7 +43,13 @@ test('website changes discard current research and unknown delivery prevents a n
   await saveGmailConnection(ctx.userId,{accessToken:'fixture-only',expiresAt:new Date(Date.now()+3600000),scope:'gmail.send'},'test@example.com','test@example.com');
   const [p]=await sql`INSERT INTO prospects(org_id,name,website) VALUES(${ctx.orgId},'Test','https://old.example.com/') RETURNING id`;
   const audit=auditHtml('<html></html>','https://old.example.com/');
-  await saveFindings(ctx.orgId,p.id,audit);
+  const researched={...audit,siteResearch:{checkedAt:new Date().toISOString(),coverage:'complete',pageLimit:50,discoveredPages:1,warnings:[],pages:[{url:'https://old.example.com/',title:'Lighting',content:'We include seasonal takedown and storage.',truncated:false}]}};
+  await saveFindings(ctx.orgId,p.id,researched);
+  const personalized={subject:'your lighting service',body:'Hey there, I saw you include seasonal takedown and storage. I help local businesses make details like that easier to find on their website. Would you like a couple of ideas?',sourceUrl:'https://old.example.com/',sourceQuote:'seasonal takedown and storage'};
+  await savePersonalizedDraft(ctx.orgId,p.id,'https://old.example.com/',personalized);
+  await Promise.all([saveFindings(ctx.orgId,p.id,audit),saveFindings(ctx.orgId,p.id,researched)]);
+  assert.equal((await getResearch(ctx.orgId,p.id)).siteResearch.recentDrafts.length,1);
+  await assert.rejects(savePersonalizedDraft(ctx.orgId,p.id,'https://old.example.com/',personalized),/repeat/);
   await updateProspect(ctx.orgId,p.id,{website:'https://new.example.com/'});
   assert.equal(await getResearch(ctx.orgId,p.id),null);
   await assert.rejects(saveFindings(ctx.orgId,p.id,audit),/website changed/);

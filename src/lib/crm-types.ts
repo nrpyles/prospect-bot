@@ -14,8 +14,14 @@ export type Finding = {
   code: string; title: string; evidence: string; url: string; checkedAt: string;
   confidence: "observed" | "needs_review"; suggestion: string;
 };
+export type WebsiteResearch = {
+  checkedAt: string; coverage: 'complete' | 'partial' | 'unavailable';
+  pageLimit: number; discoveredPages: number; warnings: string[];
+  pages: {url: string; title: string; content: string; truncated: boolean}[];
+  recentDrafts?: {subject: string; body: string}[];
+};
 export type AuditResult = {
-  websiteUrl?: string | null;state: WebsiteState; findings: Finding[]; checksRun: string[]; checksNotRun: string[]; errorCode?: string};
+  websiteUrl?: string | null;state: WebsiteState; findings: Finding[]; checksRun: string[]; checksNotRun: string[]; errorCode?: string; siteResearch?: WebsiteResearch};
 export type Candidate = {
   id: string; displayTitle: string; businessName: string | null; city: string; industry: string;
   website: string | null; phone: string | null; email: string | null; placeId: string | null;

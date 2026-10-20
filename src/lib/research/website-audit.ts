@@ -25,10 +25,10 @@ export function auditHtml(html:string,url:string):AuditResult{
  for(const x of ld){try{JSON.parse(x[1]);}catch{add('invalid_schema','Structured data syntax needs review','A JSON LD block could not be parsed.','Correct its JSON syntax and validate its business facts.');}}
  return {websiteUrl:url,state:'inspected',findings,checksRun:['Static title','Description','Heading','Contact path','Viewport','Canonical','Robots directives','Structured data syntax'],checksNotRun:[...UNMEASURED]};
 }
-export async function inspectWebsite(value:string|null,options:{signal?:AbortSignal}={}):Promise<AuditResult>{
+export async function inspectWebsite(value:string|null,options:{signal?:AbortSignal;page?:{html:string;url:string}}={}):Promise<AuditResult>{
  if(!value?.trim())return {websiteUrl:null,state:'missing',findings:[],checksRun:[],checksNotRun:[...UNMEASURED,'Website HTML']};
  try{
-  const url=/^https?:\/\//i.test(value)?value:`https://${value}`;const page=await safeFetchPage(url,options);const result=auditHtml(page.html,page.url);result.websiteUrl=value;
+  const url=/^https?:\/\//i.test(value)?value:`https://${value}`;const page=options.page??await safeFetchPage(url,options);const result=auditHtml(page.html,page.url);result.websiteUrl=value;
   const origin=new URL(page.url).origin;const links=new Set<string>();
   for(const t of tags(page.html)){if(t.name!=="a"||!t.attrs.href)continue;try{const u=new URL(t.attrs.href,page.url);u.hash="";if(u.origin===origin&&u.href!==page.url&&/^https?:$/.test(u.protocol))links.add(u.href);}catch{/* malformed href */}if(links.size>=20)break;}
   let checked=0;
