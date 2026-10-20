@@ -6,6 +6,7 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { isPrimaryOwner, PRIMARY_OWNER_EMAIL } from "./private-access";
 import { ensureUserAndOrg } from "@/db/users";
+import {classifyWorkspaceFailure,WorkspaceSetupError} from "./workspace-setup";
 
 export async function getUserContext() {
   const { userId: clerkId } = await auth();
@@ -19,11 +20,17 @@ export async function getUserContext() {
     .map(address=>address.emailAddress);
   if (!isPrimaryOwner({clerkId, verifiedEmails})) return null;
 
-  return ensureUserAndOrg({
-    clerkId,
-    email: PRIMARY_OWNER_EMAIL,
-    name: user.firstName ? `${user.firstName} ${user.lastName ?? ""}`.trim() : null,
-    imageUrl: user.imageUrl,
-  });
+  try {
+    return await ensureUserAndOrg({
+      clerkId,
+      email: PRIMARY_OWNER_EMAIL,
+      name: user.firstName ? `${user.firstName} ${user.lastName ?? ""}`.trim() : null,
+      imageUrl: user.imageUrl,
+    });
+  } catch(error) {
+    const code=classifyWorkspaceFailure(error,Boolean(process.env.DATABASE_URL));
+    console.error('Private CRM workspace initialization failed',{code});
+    throw new WorkspaceSetupError(code);
+  }
 }
 
