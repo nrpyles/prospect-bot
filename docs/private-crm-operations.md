@@ -8,7 +8,7 @@ Run the web and discovery worker as separate services sharing the same database 
 
 ## Owner access
 
-Set PRIVATE_OWNER_CLERK_ID to the existing authorized Clerk user ID. A configured ID takes precedence over email. Alternatively set PRIVATE_OWNER_EMAIL; only a verified email on the current Clerk account is accepted. Keep sign ups disabled in the Clerk application. The app also redirects its sign up route and denies unconfigured owners before creating a workspace.
+The explicitly requested owner email is nrpyles@gmail.com, pinned in src/lib/private-access.ts. The authenticated Clerk account must contain that verified email; a verified secondary email is accepted too. Unverified and unrelated addresses are denied before workspace creation. Legacy PRIVATE_OWNER_CLERK_ID and PRIVATE_OWNER_EMAIL environment variables no longer choose the owner. Keep sign ups disabled in the Clerk application and use the existing owner account. If that email has no Clerk account yet, the identity provider must provision or link it before sign in can succeed.
 
 Set NEXT_PUBLIC_APP_URL to the actual web URL. Use the matching personal Gmail OAuth redirect URL in Google. No new domain purchase is necessary to test an existing deployment URL.
 

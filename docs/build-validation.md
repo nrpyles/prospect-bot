@@ -4,7 +4,7 @@ This is an implementation for review, not a verified production release. No acco
 
 ## Verified in this environment
 
-* Native Node domain suite: 30 passed, zero failed.
+* Native Node domain suite: 31 passed, zero failed.
 * Five database tests explicitly skipped because TEST_DATABASE_URL was absent. These do not count as passes.
 * TypeScript 5.9.3 transpile checks: 124 TS and TSX files, zero syntax diagnostics. Transpiling does not perform semantic type checking.
 * Original catalog comparison: all 106 original industries remain, with nine seasonal additions. All 14 original statuses remain.
@@ -63,3 +63,7 @@ Two minor issues are deferred: the shared legacy prospect DTO still maps null qu
 ## Delivery status
 
 The implementation is committed on the isolated codex/private-crm-build branch and prepared for a draft pull request. Publication to the public nrpyles/prospect-bot repository was initially paused by automatic approval review. Neal explicitly approved that publication on October 20, 2026. No merge or production deployment is part of this handoff.
+
+## Owner email and access shortcut update
+
+At Neal’s request, private CRM access now requires the verified email nrpyles@gmail.com on the signed in Clerk account. This replaces the earlier environment-selected owner policy. The website shortcut is a Netlify 302 redirect from both /prospectbot and /prospectbot/ to the reviewed Vercel branch. Vercel reported the prior CRM commit deployed successfully on October 20, 2026; authenticated database, worker, provider and OAuth checks remain separate. The build environment could not open the Vercel page because outbound browser requests were restricted, so live sign in is not claimed verified.

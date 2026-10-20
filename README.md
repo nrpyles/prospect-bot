@@ -13,11 +13,11 @@ There’s no public software sales site, subscription billing flow, client porta
 Use Node 24 and pnpm. The original package versions are preserved.
 
 1. Run `pnpm install --frozen-lockfile`.
-2. Copy `.env.example` to `.env.local` and supply the owner identity, existing Clerk configuration, database URL, and stable token encryption key.
+2. Copy `.env.example` to `.env.local` and supply the existing Clerk configuration, database URL, and stable token encryption key.
 3. Back up the existing database, then apply additive migrations with `pnpm exec tsx scripts/migrate.ts`.
 4. Start the web app with `pnpm dev`.
 5. Start discovery in a second terminal with `pnpm worker`.
-6. Open `http://localhost:3000` and sign in with the authorized owner account.
+6. Open `http://localhost:3000` and sign in using the Clerk account with verified email nrpyles@gmail.com.
 
 On Mac, `START_MAC.command` checks the configuration and starts both processes after dependencies are installed. It doesn’t provision a database, purchase services, or configure accounts.
 
@@ -36,3 +36,7 @@ The default drafts use free local templates. AI requests occur only when you exp
 This build’s environment blocked dependency installation. Domain tests and TypeScript syntax checks were run; production compilation, real database migrations, OAuth, live providers, and the full browser application were not verified here. See `docs/build-validation.md` for the exact status. Do not deploy over existing production until the blocked checks pass.
 
 Full operations, backup and rollback: `docs/private-crm-operations.md`.
+
+## Personal access shortcut
+
+The existing Netlify website routes nealpyles.com/prospectbot to the reviewed CRM branch on Vercel. This is a temporary redirect to the separate app, not a deployment of Next.js inside the mortgage website. The CRM requires the authenticated Clerk account to contain the verified email nrpyles@gmail.com. Unverified or unrelated addresses cannot access CRM data. The user must sign in through Clerk normally; this change does not create an identity provider account or skip authentication.
