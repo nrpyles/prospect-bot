@@ -34,3 +34,9 @@ test('refreshing the same website keeps recent draft history without reviving ol
  assert.equal(guards.mergeWebsiteResearch(base,previous).siteResearch.recentDrafts[0].body,'Earlier message.');
  assert.equal(guards.mergeWebsiteResearch({...next,websiteUrl:'https://another.example'},previous).siteResearch.recentDrafts,undefined);
 });
+
+test('AI output cannot use an audit note as the sourced business detail',()=>{
+ const technical={...research,pages:[{url:'https://example.com',title:'Audit note',content:'No canonical link was found on this page.',truncated:false}]};
+ const body="Hey there, no canonical link was found on this page. I help local businesses improve their websites and SEO. Would you like me to send a couple of ideas for your business?";
+ assert.throws(()=>draft.validatePersonalizedDraft({subject:'a website idea',body,sourceUrl:'https://example.com',sourceQuote:'No canonical link was found on this page.'},technical,[]),/technical|audit|business detail/i);
+});
