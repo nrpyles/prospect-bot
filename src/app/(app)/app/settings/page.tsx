@@ -1,64 +1,9 @@
-import { eq } from "drizzle-orm";
-import { currentUser } from "@clerk/nextjs/server";
-import { getUserContext } from "@/lib/server-context";
-import { db } from "@/db";
-import { organizations } from "@/db/schema";
-import { SettingsClient } from "./SettingsClient";
-import { GmailConnect } from "./GmailConnect";
-
-export default async function SettingsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ gmail?: string }>;
-}) {
-  const { gmail } = await searchParams;
-  const ctx = await getUserContext();
-  if (!ctx || !db) {
-    return (
-      <div className="mx-auto max-w-3xl px-6 py-16">
-        <h1 className="text-2xl font-bold">Session expired</h1>
-      </div>
-    );
-  }
-
-  const [org] = await db
-    .select()
-    .from(organizations)
-    .where(eq(organizations.id, ctx.orgId))
-    .limit(1);
-  const user = await currentUser();
-  const email = user?.primaryEmailAddress?.emailAddress ?? user?.emailAddresses[0]?.emailAddress ?? "—";
-
-  return (
-    <div className="mx-auto max-w-3xl px-4 py-10 lg:px-8 lg:py-14">
-      <div className="mb-8">
-        <p className="eyebrow mb-2">SETTINGS</p>
-        <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">Configure your workspace.</h1>
-        <p className="mt-3 text-sm text-[color:var(--color-foreground-dim)]">
-          API keys, default search criteria, and your account. Everything is scoped to your workspace.
-        </p>
-      </div>
-
-      {/* Gmail connection — server-driven status banner from ?gmail= param */}
-      <section className="mb-8">
-        <h2 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[color:var(--color-foreground-dim)]">
-          <span className="text-[color:var(--color-accent)]">✉</span>
-          Send from Gmail
-        </h2>
-        <GmailConnect statusParam={gmail} />
-      </section>
-
-      <SettingsClient
-        orgName={org?.name ?? "My Workspace"}
-        workspaceMode={(org?.workspaceMode ?? "agency") as "agency" | "lending" | "contractor"}
-        senderName={org?.senderName ?? ""}
-        senderCompany={org?.senderCompany ?? ""}
-        googleMapsApiKey={org?.googleMapsApiKey ?? ""}
-        defaultCities={(org?.defaultCities as string[] | null) ?? []}
-        defaultIndustries={(org?.defaultIndustries as string[] | null) ?? []}
-        email={email}
-        hasAnthropicKey={Boolean(process.env.ANTHROPIC_API_KEY)}
-      />
-    </div>
-  );
+import {getUserContext} from "@/lib/server-context";
+import {GmailConnect} from "./GmailConnect";
+import {providerSettings} from "@/db/provider-settings";
+export const dynamic="force-dynamic";
+export default async function SettingsPage({searchParams}:{searchParams:Promise<{gmail?:string}>}){
+ const ctx=await getUserContext();if(!ctx)return null;const status=await searchParams;const config=await providerSettings(ctx.orgId);
+ const rows=[{name:"Google business search",ready:Boolean(config.googleKey),description:"Business listings and service area businesses."},{name:"Facebook + Craigslist discovery",ready:Boolean(config.publicWebKey),description:"Public indexed listings through your configured search service."},{name:"AI drafting",ready:Boolean(process.env.ANTHROPIC_API_KEY),description:"Optional usage based drafting. Free templates are always available."}];
+ return <><div className="crm-page-heading"><div><p className="crm-eyebrow">YOUR PRIVATE WORKSPACE</p><h1>Connections, kept simple.</h1><p>Your personal sender and research services.</p></div></div><section className="crm-card crm-settings-card"><h2>Personal email</h2><p className="crm-muted">Connect the personal Gmail account you want prospects to hear from. Every send shows the actual connected address. Replies are marked manually.</p><GmailConnect statusParam={status.gmail}/></section><section className="crm-card crm-settings-card"><h2>Research services</h2>{rows.map(r=><div className="crm-connection-row" key={r.name}><div><strong>{r.name}</strong><p>{r.description}</p></div><span className={r.ready?"crm-state crm-state-complete":"crm-state"}>{r.ready?"Configured":"Not configured"}</span></div>)}<p className="crm-muted">Provider credentials stay on the server. Use deployment environment settings to configure them. No credentials are shown here.</p></section><section className="crm-card crm-settings-card"><h2>Costs and control</h2><p>Searches only run when you start them. Each run has a candidate limit and a combination budget. AI drafting only runs when you select it.</p><p className="crm-muted">Hosting and provider usage may incur charges. No subscriptions, paid services, or automated outreach are activated by this interface.</p></section></>;
 }

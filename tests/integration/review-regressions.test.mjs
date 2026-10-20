@@ -1,0 +1,54 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import {isolatedDatabase,owner} from '../helpers/database.mjs';
+
+test('sequence delivery commits advancement once and stale actions cannot repeat it', {skip:!process.env.TEST_DATABASE_URL&&'TEST_DATABASE_URL is not configured; database validation was not run'}, async()=>isolatedDatabase(async sql=>{
+  const {prepareSend,executeSend,stopProspectOutreach}=await import('../../src/db/send-intents.ts');
+  const {saveGmailConnection}=await import('../../src/db/connections.ts');
+  const {advanceEnrollment,listDueEnrollments,enrollProspects}=await import('../../src/db/sequences.ts');
+  const ctx=await owner(sql);
+  await saveGmailConnection(ctx.userId,{accessToken:'fixture-only',expiresAt:new Date(Date.now()+3600000),scope:'gmail.send'},'test@example.com','test@example.com');
+  const [p]=await sql`INSERT INTO prospects(org_id,name,email) VALUES(${ctx.orgId},'Test','business@example.com') RETURNING id`;
+  const [seq]=await sql`INSERT INTO sequences(org_id,name,is_active) VALUES(${ctx.orgId},'Test',true) RETURNING id`;
+  await sql`INSERT INTO sequence_steps(sequence_id,position,kind) VALUES(${seq.id},0,'email'),(${seq.id},1,'email'),(${seq.id},2,'email')`;
+  const [enrollment]=await sql`INSERT INTO sequence_enrollments(sequence_id,prospect_id,next_action_at) VALUES(${seq.id},${p.id},now()) RETURNING id`;
+  const draft={...ctx,prospectId:p.id,clientKey:randomUUID(),recipient:'business@example.com',subject:'Test',body:'Fixture only',enrollmentId:enrollment.id,expectedStepPosition:0};
+  const first=await prepareSend(draft);
+  const remount=await prepareSend({...draft,clientKey:randomUUID()});
+  assert.equal(first.intentId,remount.intentId);
+  let calls=0;const fake=async()=>{calls++;return{id:'fixture-message',threadId:'fixture-thread'};};
+  const send={...ctx,prospectId:p.id,intentId:first.intentId,expectedSender:'test@example.com'};
+  await executeSend(send,fake);await executeSend(send,fake);
+  assert.equal(calls,1);
+  const [advanced]=await sql`SELECT * FROM sequence_enrollments WHERE id=${enrollment.id}`;
+  assert.equal(advanced.current_step_position,1);
+  assert.equal((await advanceEnrollment(ctx.orgId,enrollment.id,0)).advanced,false);
+  await stopProspectOutreach(ctx.orgId,p.id,'replied');
+  assert.equal((await advanceEnrollment(ctx.orgId,enrollment.id,1)).advanced,false);
+  const [paused]=await sql`SELECT * FROM sequence_enrollments WHERE id=${enrollment.id}`;
+  assert.equal(paused.next_action_at,null);
+  await sql`UPDATE prospects SET status='Not Interested',outreach_disposition='active' WHERE id=${p.id}`;
+  assert.equal((await listDueEnrollments(ctx.orgId)).length,0);
+  assert.equal((await enrollProspects(ctx.orgId,seq.id,[p.id])).length,0);
+}));
+
+test('website changes discard current research and unknown delivery prevents a new intent', {skip:!process.env.TEST_DATABASE_URL&&'TEST_DATABASE_URL is not configured; database validation was not run'}, async()=>isolatedDatabase(async sql=>{
+  const {updateProspect}=await import('../../src/db/prospects.ts');
+  const {saveFindings,getResearch}=await import('../../src/db/research.ts');
+  const {auditHtml}=await import('../../src/lib/research/website-audit.ts');
+  const {prepareSend,executeSend}=await import('../../src/db/send-intents.ts');
+  const {saveGmailConnection}=await import('../../src/db/connections.ts');
+  const ctx=await owner(sql);
+  await saveGmailConnection(ctx.userId,{accessToken:'fixture-only',expiresAt:new Date(Date.now()+3600000),scope:'gmail.send'},'test@example.com','test@example.com');
+  const [p]=await sql`INSERT INTO prospects(org_id,name,website) VALUES(${ctx.orgId},'Test','https://old.example.com/') RETURNING id`;
+  const audit=auditHtml('<html></html>','https://old.example.com/');
+  await saveFindings(ctx.orgId,p.id,audit);
+  await updateProspect(ctx.orgId,p.id,{website:'https://new.example.com/'});
+  assert.equal(await getResearch(ctx.orgId,p.id),null);
+  await assert.rejects(saveFindings(ctx.orgId,p.id,audit),/website changed/);
+  const draft={...ctx,prospectId:p.id,clientKey:randomUUID(),recipient:'business@example.com',subject:'Test',body:'Fixture only'};
+  const intent=await prepareSend(draft);
+  await executeSend({...ctx,prospectId:p.id,intentId:intent.intentId,expectedSender:'test@example.com'},async()=>{throw new Error('Simulated delivery timeout');});
+  await assert.rejects(prepareSend({...draft,clientKey:randomUUID()}),/unresolved delivery/);
+}));

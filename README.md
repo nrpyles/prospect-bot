@@ -1,80 +1,38 @@
-# FunnelCloser
+# FunnelCloser: Neal’s Private CRM
 
-A SaaS sister-brand to [Closer Capital](https://closercap.com). Finds local businesses with weak websites, scores them, and runs AI-personalized outreach.
+A private workspace for finding local businesses, researching their websites and SEO opportunities, and managing personal outreach. Original trades remain available alongside Christmas lighting and other seasonal services.
 
-## Stack
-- **Next.js 16** (App Router, Turbopack) + TypeScript
-- **Tailwind v4** (CSS-first config in `globals.css`)
-- **Clerk** for auth (works in keyless dev mode out of the box)
-- **Drizzle ORM** + **Postgres** for data
-- **Stripe** for billing (wired in Phase 5)
-- **Anthropic API** for AI-drafted outreach (wired in Phase 4)
+## What’s included
 
-## Local development
+Today’s tasks, business directory, pipeline, Google business discovery, public indexed Facebook and Craigslist discovery, a listing review queue, static website and SEO checks, editable free outreach templates, optional AI drafting, personal Gmail sending, and manual reply controls.
 
-```bash
-pnpm install
-pnpm dev
-```
+There’s no public software sales site, subscription billing flow, client portal, or website generator in this build.
 
-The dev server runs at http://localhost:3000.
+## Run it
 
-### Environment variables
+Use Node 24 and pnpm. The original package versions are preserved.
 
-For local dev, you can mostly skip env setup:
-- **Clerk** runs in keyless mode by default — it auto-provisions temporary keys. The "Configure your application" overlay on `/sign-up` lets you claim the temp instance into a real Clerk account when ready.
-- **Database** — required for the dashboard. Create a Railway Postgres instance and put its URL in `.env.local` as `DATABASE_URL`.
+1. Run `pnpm install --frozen-lockfile`.
+2. Copy `.env.example` to `.env.local` and supply the owner identity, existing Clerk configuration, database URL, and stable token encryption key.
+3. Back up the existing database, then apply additive migrations with `pnpm exec tsx scripts/migrate.ts`.
+4. Start the web app with `pnpm dev`.
+5. Start discovery in a second terminal with `pnpm worker`.
+6. Open `http://localhost:3000` and sign in with the authorized owner account.
 
-Copy `.env.example` to `.env.local` and fill in keys as you wire each service.
+On Mac, `START_MAC.command` checks the configuration and starts both processes after dependencies are installed. It doesn’t provision a database, purchase services, or configure accounts.
 
-### Database migrations
+## Connections
 
-Once `DATABASE_URL` is set:
+Google discovery requires a server side Places API key. Public Facebook and Craigslist discovery uses a Firecrawl API key and only covers indexed public content. Original listing links remain available for manual review. Unknown listing dates remain unknown.
 
-```bash
-pnpm drizzle-kit push           # push schema directly (dev)
-pnpm drizzle-kit generate       # generate migration SQL
-pnpm drizzle-kit migrate        # apply migrations
-```
+For personal Gmail, configure a Google OAuth client with the redirect URL `YOUR_APP_URL/api/auth/google/callback`, then use Settings to connect your own account. The app requests sending and account identity, not inbox access. Review each email before sending. Mark replies manually to stop future due actions.
 
-## Project structure
+The default drafts use free local templates. AI requests occur only when you explicitly choose AI drafting and have configured an API key. Search and hosting providers may charge for usage.
 
-```
-src/
-  app/
-    layout.tsx                    Root layout (fonts, no auth)
-    page.tsx                      Marketing landing page (/)
-    (auth)/
-      layout.tsx                  ClerkProvider for auth pages
-      sign-in/[[...sign-in]]/     /sign-in
-      sign-up/[[...sign-up]]/     /sign-up
-    (app)/
-      layout.tsx                  ClerkProvider + authed shell
-      app/page.tsx                /app — authed dashboard (Phase 2)
-  components/site/                Marketing components (Nav, Footer, Wordmark)
-  db/
-    schema.ts                     Drizzle schema — users, orgs, prospects, sequences, etc.
-    index.ts                      DB client (lazy singleton)
-  lib/cn.ts                       Tailwind className merger
-  proxy.ts                        Next.js 16 proxy.ts (formerly middleware.ts) — Clerk auth
-drizzle.config.ts                 Drizzle Kit config
-```
+## Verification
 
-## Brand
+`pnpm test:unit` runs dependency free domain tests. `pnpm test:integration` requires installed dependencies and an isolated `TEST_DATABASE_URL`; database tests are skipped when it isn’t configured. `pnpm exec tsc --noEmit`, `pnpm lint`, and `pnpm build` are required before deployment.
 
-Dark theme with `#FF6B2C` orange accent — carries forward the prospect-bot DNA, refined with the avant-garde typography sensibility of [wantedfornothing.com](https://wantedfornothing.com) and the Closer family's structural confidence.
+This build’s environment blocked dependency installation. Domain tests and TypeScript syntax checks were run; production compilation, real database migrations, OAuth, live providers, and the full browser application were not verified here. See `docs/build-validation.md` for the exact status. Do not deploy over existing production until the blocked checks pass.
 
-- **Display + body:** Outfit (Google Fonts)
-- **Mono / numerals:** JetBrains Mono
-- **Wordmark:** `FUNNEL.CLOSER` with orange accent dot
-
-Brand tokens live in `src/app/globals.css` under `@theme`.
-
-## Build phases
-
-1. ✅ **Foundation** — scaffold, design system, landing, auth shell
-2. ⏳ **Dashboard** — port the 6-stage Kanban pipeline + prospect CRUD
-3. ⏳ **Lead-gen engine** — user-configurable Google Maps search + website scoring (TS port of `prospect-bot/prospect-finder-v2.py`)
-4. ⏳ **Outreach automation** — Gmail OAuth, sequence builder, Claude-drafted personalization
-5. ⏳ **Stripe billing** — DB-configurable tiers, customer portal, usage gates
-6. ⏳ **Polish + deploy** — Vercel (web) + Railway (DB + worker)
+Full operations, backup and rollback: `docs/private-crm-operations.md`.

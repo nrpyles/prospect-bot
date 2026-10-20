@@ -1,8 +1,9 @@
+import {websiteChanged} from '@/lib/crm-guards';
 /**
  * Prospect queries scoped to an organization.
  */
 import { db } from "./index";
-import { prospects, type NewProspect, type Prospect as DbProspect } from "./schema";
+import { prospects, prospectResearch, type NewProspect, type Prospect as DbProspect } from "./schema";
 import { and, eq, desc } from "drizzle-orm";
 import type { Prospect as UiProspect } from "@/lib/mock-prospects";
 
@@ -17,6 +18,11 @@ export function toUiProspect(row: DbProspect): UiProspect {
     phone: row.phone ?? undefined,
     email: row.email ?? undefined,
     website: row.website ?? undefined,
+    researchState: row.researchState as UiProspect["researchState"],
+    offerType: row.offerType as UiProspect["offerType"],
+    nextAction: row.nextAction ?? undefined,
+    externalProjectUrl: row.externalProjectUrl ?? undefined,
+    outreachDisposition: row.outreachDisposition as UiProspect["outreachDisposition"],
     quality: (row.quality ?? "No Website") as UiProspect["quality"],
     qualityIssues: (row.qualityIssues as string[] | null) ?? [],
     rating: row.rating ?? undefined,
@@ -62,12 +68,14 @@ export async function updateProspect(
   patch: Partial<NewProspect>,
 ): Promise<UiProspect | null> {
   if (!db) throw new Error("DATABASE_URL is not set");
-  const rows = await db
-    .update(prospects)
-    .set({ ...patch, updatedAt: new Date() })
-    .where(and(eq(prospects.id, id), eq(prospects.orgId, orgId)))
-    .returning();
-  return rows[0] ? toUiProspect(rows[0]) : null;
+  return db.transaction(async tx => {
+    const [previous] = await tx.select().from(prospects).where(and(eq(prospects.id,id),eq(prospects.orgId,orgId))).for('update');
+    if(!previous)return null;
+    const changed=patch.website!==undefined&&websiteChanged(previous.website,patch.website);
+    if(changed)await tx.delete(prospectResearch).where(and(eq(prospectResearch.orgId,orgId),eq(prospectResearch.prospectId,id)));
+    const [row]=await tx.update(prospects).set({...patch,...(changed?{researchState:'unchecked',quality:null,qualityIssues:[]}:{}),updatedAt:new Date()}).where(and(eq(prospects.id,id),eq(prospects.orgId,orgId))).returning();
+    return toUiProspect(row);
+  });
 }
 
 export async function deleteProspect(orgId: string, id: string): Promise<boolean> {
@@ -87,3 +95,4 @@ export async function getExistingProspectNames(orgId: string): Promise<string[]>
     .where(eq(prospects.orgId, orgId));
   return rows.map((r) => r.name);
 }
+

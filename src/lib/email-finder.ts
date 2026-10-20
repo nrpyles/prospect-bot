@@ -8,10 +8,7 @@
  * Returns a ranked list of best-guess email addresses for the business.
  */
 import { load as loadHtml } from "cheerio";
-
-const USER_AGENT =
-  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15";
-const TIMEOUT_MS = 10_000;
+import {safeFetchPage} from "./research/safe-fetch";
 
 const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
 
@@ -104,23 +101,8 @@ function normalizeUrl(input: string): string {
   }
 }
 
-async function fetchHtml(url: string): Promise<{ html: string; finalUrl: string } | null> {
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-    const resp = await fetch(url, {
-      redirect: "follow",
-      signal: controller.signal,
-      headers: { "User-Agent": USER_AGENT, Accept: "text/html,*/*;q=0.8" },
-    });
-    clearTimeout(timer);
-    if (!resp.ok) return null;
-    const ct = resp.headers.get("content-type") ?? "";
-    if (!ct.includes("text/html") && !ct.includes("application/xhtml")) return null;
-    return { html: await resp.text(), finalUrl: resp.url };
-  } catch {
-    return null;
-  }
+async function fetchHtml(url: string): Promise<{html:string;finalUrl:string}|null>{
+  try{const page=await safeFetchPage(url);return {html:page.html,finalUrl:page.url};}catch{return null;}
 }
 
 /** Deobfuscate common email obfuscations: "name AT domain DOT com" → name@domain.com */
@@ -278,3 +260,4 @@ export async function findEmailsForWebsite(websiteRaw: string): Promise<EmailFin
   result.emails = [...seen.values()].sort((a, b) => b.score - a.score).slice(0, 6);
   return result;
 }
+

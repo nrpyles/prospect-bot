@@ -1,0 +1,2 @@
+import {NextResponse} from 'next/server';import {getUserContext} from '@/lib/server-context';import {getSearchJob} from '@/db/discovery';
+export async function GET(_req:Request,{params}:{params:Promise<{id:string}>}){const ctx=await getUserContext();if(!ctx)return NextResponse.json({error:'Unauthorized'},{status:401});const {id}=await params;if(!/^[\da-f-]{36}$/i.test(id))return NextResponse.json({error:'Invalid search ID'},{status:400});const job=await getSearchJob(ctx.orgId,id);return NextResponse.json(job??{error:'Search not found'},{status:job?200:404});}

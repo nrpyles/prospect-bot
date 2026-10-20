@@ -1,5 +1,6 @@
 "use server";
 
+import {stopProspectOutreach} from "@/db/send-intents";
 import { revalidatePath } from "next/cache";
 import { getUserContext } from "@/lib/server-context";
 import {
@@ -27,6 +28,9 @@ function uiToDbPatch(patch: Partial<UiProspect>): Record<string, unknown> {
   if (patch.channel !== undefined) out.channel = patch.channel || null;
   if (patch.packageName !== undefined) out.packageName = patch.packageName || null;
   if (patch.valueCents !== undefined) out.valueCents = patch.valueCents ?? null;
+  if (patch.nextAction !== undefined) out.nextAction = patch.nextAction || null;
+  if (patch.offerType !== undefined) out.offerType = patch.offerType;
+  if (patch.externalProjectUrl !== undefined) out.externalProjectUrl = patch.externalProjectUrl || null;
   if (patch.notes !== undefined) out.notes = patch.notes || null;
   if (patch.lastContactedAt !== undefined) {
     out.lastContactedAt = patch.lastContactedAt ? new Date(patch.lastContactedAt) : null;
@@ -41,6 +45,7 @@ export async function saveProspectAction(id: string, patch: Partial<UiProspect>)
   const ctx = await getUserContext();
   if (!ctx) throw new Error("Unauthorized");
   const result = await dbUpdateProspect(ctx.orgId, id, uiToDbPatch(patch));
+  if(patch.status === "Not Interested") await stopProspectOutreach(ctx.orgId,id,"not_interested");
   revalidatePath("/app");
   return result;
 }
@@ -57,6 +62,8 @@ export async function updateStatusAction(id: string, status: Status) {
   const ctx = await getUserContext();
   if (!ctx) throw new Error("Unauthorized");
   const result = await dbUpdateProspect(ctx.orgId, id, { status });
+  if(status === "Not Interested") await stopProspectOutreach(ctx.orgId,id,"not_interested");
   revalidatePath("/app");
   return result;
 }
+

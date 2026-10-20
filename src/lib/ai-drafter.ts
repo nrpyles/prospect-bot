@@ -4,6 +4,8 @@
  *   - "agency"  → FunnelCloser marketing-agency pitch (their website sucks)
  *   - "lending" → Closer Capital lending pitch (capital for growth)
  */
+import {buildAgencyDraftContext} from "./outreach/agency-draft";
+import type {Finding,OfferType} from "./crm-types";
 import Anthropic from "@anthropic-ai/sdk";
 import type { Prospect } from "./mock-prospects";
 import type { WorkspaceMode } from "./pipeline";
@@ -12,6 +14,8 @@ const MODEL = "claude-sonnet-4-6";
 
 export type DraftRequest = {
   prospect: Prospect;
+  findings?: Finding[];
+  offerType?: OfferType;
   mode?: WorkspaceMode;
   senderName?: string;
   senderCompany?: string;
@@ -33,44 +37,6 @@ const WRITING_STYLE = `WRITING STYLE (HARD RULES — APPLY TO EVERY EMAIL)
 - Hyphens are only acceptable inside a normal compound word (for example "same-day" or "first-touch"). Never use a hyphen or dash to connect two independent thoughts.
 - Do not use parenthetical asides set off by dashes. Rework them into their own sentence.
 - Keep it conversational and human, but every line must be a real sentence with a subject and a verb.`;
-
-const AGENCY_SYSTEM_PROMPT = `You are an expert sales copywriter for FunnelCloser, a B2B SaaS sister-brand to Closer Capital. Your job: write cold first-touch emails that get replies from local service-business owners (roofers, HVAC, med spas, etc.) whose websites have real, observable problems.
-
-VOICE
-- Confident, direct, evidence-based. "Real people. Clear terms." (the Closer Capital tagline pattern)
-- Sound like a senior closer who actually looked at their site — not a templated AI
-- Short. 4-6 short paragraphs MAX. White space matters.
-- No flattery. No "I hope this email finds you well." No "I came across your business and was impressed."
-- Lead with one specific website issue they can see for themselves
-- Earn the reply, don't beg for it
-
-STRUCTURE
-1. Hook: a specific, observable problem on their site (cite the actual issue, not a generic claim)
-2. Implication: what that costs them (lost leads, lower trust, mobile users bouncing)
-3. Offer: one sentence on what you can do (NOT a pitch deck — a hint)
-4. CTA: low-friction reply ask ("worth a 10-min call this week?" or "want me to send a 60-sec Loom?")
-
-CONSTRAINTS
-- Subject line: ≤7 words, lowercase OK, NEVER use ALL CAPS, no emojis
-- Body: plain text, no signoff (the user adds their own signature)
-- Address the business by name in the first line
-- Reference at least one specific quality issue from the input
-- Never invent facts. Only use what's in the input.
-- Output JSON with this exact shape: { "subject": string, "body": string, "reasoning": string }
-- "reasoning" is one short sentence: which website issue you led with and why
-
-${WRITING_STYLE}
-
-EXAMPLE (note: zero dashes, complete sentences)
-Subject: noticed reliable roofing's site has no SSL
-Body:
-Hey, I just clicked through to reliable-roofing-tx.com and Chrome is flagging it as "not secure" because there is no SSL certificate.
-
-For a roofer in Plano competing against the bigger names in Frisco, that warning is a real trust killer. It matters even more for the 60 percent of your traffic coming from mobile, where the warning takes over the full screen.
-
-I help home service operators in DFW get this fixed, along with a few other things visible on your site, without paying 5,000 dollars to an agency.
-
-Would it be worth a 10 minute call this week so I can walk you through what I am seeing?`;
 
 const CONTRACTOR_SYSTEM_PROMPT = `You are Neal Pyles, Lending Partner Liaison at Closer Capital. Your job: write cold first-touch emails to home-service contractors (roofers, HVAC, bath remodelers, window installers, etc.) to recruit them into Closer Capital's Blue Collar Lending program. You write like a peer who actually swings a hammer for a living — not a fintech BDR.
 
@@ -200,12 +166,13 @@ export async function draftEmail(req: DraftRequest): Promise<DraftResult> {
   }
 
   const mode: WorkspaceMode = req.mode ?? "agency";
+  const agencyContext=buildAgencyDraftContext({prospect:req.prospect,findings:req.findings??[],offerType:req.offerType??"website_plus_seo",senderName:req.senderName??"Neal Pyles"});
   const systemPrompt =
     mode === "contractor"
       ? CONTRACTOR_SYSTEM_PROMPT
       : mode === "lending"
         ? LENDING_SYSTEM_PROMPT
-        : AGENCY_SYSTEM_PROMPT;
+        : agencyContext.system;
 
   const client = new Anthropic({ apiKey });
 
@@ -289,7 +256,7 @@ export async function draftEmail(req: DraftRequest): Promise<DraftResult> {
     `\nWrite a first-touch cold email per the rules in the system prompt. Output valid JSON only.`,
   );
 
-  const userText = promptParts.join("\n");
+  const userText = mode === "agency" ? agencyContext.user : promptParts.join("\n");
 
   const response = await client.messages.create({
     model: MODEL,
@@ -366,3 +333,4 @@ export function stripDashes(input: string): string {
 
   return out;
 }
+

@@ -1,71 +1,15 @@
-import { NextResponse } from "next/server";
-import { z } from "zod";
-import { getUserContext } from "@/lib/server-context";
-import { db } from "@/db";
-import { prospects, organizations } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
-import { toUiProspect } from "@/db/prospects";
-import { draftEmail } from "@/lib/ai-drafter";
-import type { WorkspaceMode } from "@/lib/pipeline";
-
-export const runtime = "nodejs";
-export const maxDuration = 60;
-
-const bodySchema = z.object({
-  senderName: z.string().optional(),
-  senderCompany: z.string().optional(),
-  packageHook: z.string().optional(),
-  apiKey: z.string().optional(),
-});
-
-export async function POST(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const ctx = await getUserContext();
-  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 500 });
-
-  let parsed: z.infer<typeof bodySchema>;
-  try {
-    parsed = bodySchema.parse(await req.json());
-  } catch {
-    parsed = {};
-  }
-
-  const row = (
-    await db
-      .select()
-      .from(prospects)
-      .where(and(eq(prospects.id, id), eq(prospects.orgId, ctx.orgId)))
-      .limit(1)
-  )[0];
-  if (!row) return NextResponse.json({ error: "Prospect not found" }, { status: 404 });
-
-  // Pull org-level voice/identity (workspace mode + sender info)
-  const [org] = await db
-    .select({
-      mode: organizations.workspaceMode,
-      senderName: organizations.senderName,
-      senderCompany: organizations.senderCompany,
-    })
-    .from(organizations)
-    .where(eq(organizations.id, ctx.orgId))
-    .limit(1);
-
-  try {
-    const draft = await draftEmail({
-      prospect: toUiProspect(row),
-      mode: (org?.mode ?? "agency") as WorkspaceMode,
-      senderName: parsed.senderName ?? org?.senderName ?? undefined,
-      senderCompany: parsed.senderCompany ?? org?.senderCompany ?? undefined,
-      packageHook: parsed.packageHook,
-      apiKey: parsed.apiKey,
-    });
-    return NextResponse.json(draft);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: msg }, { status: 500 });
-  }
+import {websiteChanged} from '@/lib/crm-guards';
+import {NextResponse} from 'next/server';import {and,eq} from 'drizzle-orm';import {z} from 'zod';
+import {getUserContext} from '@/lib/server-context';import {db} from '@/db';import {prospects} from '@/db/schema';import {toUiProspect} from '@/db/prospects';import {listFindings} from '@/db/research';import {buildTemplateDraft} from '@/lib/outreach/agency-draft';import {draftEmail} from '@/lib/ai-drafter';
+export const runtime='nodejs';
+const schema=z.object({ai:z.boolean().optional(),offerType:z.enum(['website_build','website_refresh','seo_improvements','website_plus_seo']).optional()});
+export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
+ const ctx=await getUserContext();if(!ctx)return NextResponse.json({error:'Unauthorized'},{status:401});if(!db)return NextResponse.json({error:'Database is not configured'},{status:503});
+ try{const {id}=await params;z.uuid().parse(id);const input=schema.parse(await req.json().catch(()=>({})));const [row]=await db.select().from(prospects).where(and(eq(prospects.orgId,ctx.orgId),eq(prospects.id,id))).limit(1);if(!row)return NextResponse.json({error:'Prospect not found'},{status:404});
+ const prospect=toUiProspect(row);const findings=await listFindings(ctx.orgId,id);const offerType=input.offerType??prospect.offerType??'website_plus_seo';
+ if(input.ai&&!process.env.ANTHROPIC_API_KEY)return NextResponse.json({error:'AI drafting is optional and is not configured. Use the free template draft.'},{status:400});
+ const draft=input.ai?await draftEmail({prospect,findings,offerType,mode:'agency',senderName:'Neal Pyles'}):buildTemplateDraft({prospect,findings,offerType,senderName:'Neal Pyles'});
+ const [current]=await db.select({website:prospects.website}).from(prospects).where(and(eq(prospects.orgId,ctx.orgId),eq(prospects.id,id))).limit(1);if(!current||websiteChanged(row.website,current.website))return NextResponse.json({error:'The website changed while this draft was being prepared. Review the current website and prepare a new draft.'},{status:409});
+ return NextResponse.json({...draft,isTemplate:!input.ai});
+ }catch(e){return NextResponse.json({error:e instanceof Error?e.message:'Draft could not be prepared'},{status:400});}
 }

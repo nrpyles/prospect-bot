@@ -10,6 +10,11 @@ export type Prospect = {
   email?: string;
   website?: string;
   quality: Quality;
+  researchState?: import("./crm-types").WebsiteState;
+  offerType?: import("./crm-types").OfferType | null;
+  nextAction?: string;
+  externalProjectUrl?: string;
+  outreachDisposition?: import("./crm-types").OutreachDisposition;
   qualityIssues: string[];
   rating?: string;
   reviewCount?: number;
@@ -267,3 +272,4 @@ export const MOCK_PROSPECTS: Prospect[] = [
     createdAt: "2026-04-18",
   },
 ];
+

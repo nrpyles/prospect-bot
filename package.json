@@ -10,7 +10,13 @@
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "test": "node --experimental-strip-types --test tests/unit/*.test.mjs",
+    "test:unit": "node --experimental-strip-types --test tests/unit/*.test.mjs",
+    "test:integration": "node --import tsx --test tests/integration/*.test.mjs",
+    "worker": "tsx scripts/discovery-worker.ts",
+    "test:e2e": "node --test tests/e2e/*.mjs",
+    "verify:crm": "node scripts/verify-private-crm.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.98.0",
@@ -42,5 +48,9 @@
     "tailwindcss": "^4",
     "tsx": "^4.22.3",
     "typescript": "^5"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
   }
 }

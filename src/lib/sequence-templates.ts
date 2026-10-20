@@ -93,37 +93,8 @@ Either way, good luck out there.`,
     ],
   },
   {
-    id: "agency-bad-website-3touch",
-    mode: "agency",
-    name: "Bad Website — 3-Touch",
-    description:
-      "A tight 3-email, 7-day sequence for businesses with weak websites. Leads with a specific observable issue, follows up with the cost of inaction, then a low-pressure breakup.",
-    steps: [
-      {
-        kind: "email",
-        subject: "noticed an issue on {{name}}'s site",
-        useAiDraft: true,
-        body: `Hey — clicked through to {{website}} and noticed a couple things that are probably costing you leads. Worth a quick look if you've got a sec.
-
-I help {{industry}} businesses in {{city}} fix this stuff without the $5K agency retainer. Want me to send over what I'm seeing?`,
-      },
-      { kind: "wait", waitDays: 3 },
-      {
-        kind: "email",
-        subject: "the math on a slow site",
-        useAiDraft: true,
-        body: `Following up on {{name}} — the issues I flagged matter more than they look. Most of your traffic is mobile, and a site that loads slow or flags "not secure" loses those visitors before they ever call.
-
-10-min call this week to walk through the fixes?`,
-      },
-      { kind: "wait", waitDays: 4 },
-      {
-        kind: "email",
-        subject: "last one",
-        useAiDraft: true,
-        body: `I'll stop here, {{name}}. If you ever want to turn that site into something that actually books jobs, reply and I'll send a quick plan. Otherwise, all good — good luck out there.`,
-      },
-    ],
+    id: "agency-bad-website-3touch",mode:"agency",name:"Website + SEO follow up",description:"A personal introduction and two useful follow ups. Review observations before sending.",
+    steps:[{kind:"email",subject:"a website idea for {{name}}",useAiDraft:true,body:"Hey {{name}}, I help local businesses improve their websites and SEO. Would you be open to a couple of ideas for your business?"},{kind:"wait",waitDays:3},{kind:"email",subject:"following up on your website",useAiDraft:false,body:"Hey {{name}}, following up on my website and SEO note. Is this something you’d like help with, or is it already covered?"},{kind:"wait",waitDays:4},{kind:"email",subject:"closing the loop",useAiDraft:false,body:"I’ll leave this here, {{name}}. If you’d like help improving your website or SEO later, you can reply anytime."}]
   },
   {
     id: "lending-capital-3touch",
@@ -171,3 +142,4 @@ export function templatesForMode(mode: WorkspaceMode): SequenceTemplate[] {
 export function getTemplate(id: string): SequenceTemplate | undefined {
   return SEQUENCE_TEMPLATES.find((t) => t.id === id);
 }
+

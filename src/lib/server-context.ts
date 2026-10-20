@@ -4,6 +4,7 @@
  * to get the orgId for scoping queries.
  */
 import { auth, currentUser } from "@clerk/nextjs/server";
+import { isAllowedOwner } from "./private-access";
 import { ensureUserAndOrg } from "@/db/users";
 
 export async function getUserContext() {
@@ -15,6 +16,8 @@ export async function getUserContext() {
 
   const email = user.primaryEmailAddress?.emailAddress ?? user.emailAddresses[0]?.emailAddress;
   if (!email) return null;
+  const verified = user.emailAddresses.find(e => e.emailAddress === email)?.verification?.status === "verified";
+  if (!isAllowedOwner({clerkId, verifiedEmail: verified ? email : null}, {ownerClerkId:process.env.PRIVATE_OWNER_CLERK_ID,ownerEmail:process.env.PRIVATE_OWNER_EMAIL})) return null;
 
   return ensureUserAndOrg({
     clerkId,
@@ -23,3 +26,4 @@ export async function getUserContext() {
     imageUrl: user.imageUrl,
   });
 }
+

@@ -1,5 +1,2 @@
-import { SignUp } from "@clerk/nextjs";
-
-export default function SignUpPage() {
-  return <SignUp />;
-}
+import {redirect} from "next/navigation";
+export default function SignUpPage(){redirect("/sign-in");}

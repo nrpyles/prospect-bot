@@ -1,0 +1,2 @@
+import {NextResponse} from 'next/server';import {getUserContext} from '@/lib/server-context';import {cancelSearch} from '@/db/discovery';
+export async function POST(_req:Request,{params}:{params:Promise<{id:string}>}){const ctx=await getUserContext();if(!ctx)return NextResponse.json({error:'Unauthorized'},{status:401});const {id}=await params;try{if(!/^[\da-f-]{36}$/i.test(id))throw new Error('Invalid search ID');await cancelSearch(ctx.orgId,id);return NextResponse.json({ok:true});}catch{return NextResponse.json({error:'Search not found'},{status:404});}}

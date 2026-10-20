@@ -103,10 +103,10 @@ export async function enrollProspectsAction(sequenceId: string, prospectIds: str
   return enrolled;
 }
 
-export async function advanceEnrollmentAction(enrollmentId: string) {
+export async function advanceEnrollmentAction(enrollmentId: string, expectedPosition: number) {
   const ctx = await getUserContext();
   if (!ctx) throw new Error("Unauthorized");
-  const result = await dbAdvance(ctx.orgId, enrollmentId);
+  const result = await dbAdvance(ctx.orgId, z.uuid().parse(enrollmentId), z.number().int().min(0).parse(expectedPosition));
   revalidatePath("/app");
   revalidatePath("/app/sequences");
   return result;
@@ -119,3 +119,4 @@ export async function unenrollAction(enrollmentId: string) {
   revalidatePath("/app/sequences");
   revalidatePath("/app");
 }
+
