@@ -1,160 +1,209 @@
-# FunnelCloser: Original Website Outreach With Seasonal Trades
+# FunnelCloser: Private Prospecting CRM
 
-Status: Draft for Neal's review. Product implementation has not started.
+Status: Revised design for review. Product implementation has not started.
 Date: October 19, 2026, America/Chicago.
-Repository inspected: nrpyles/prospect-bot.
-Baseline commit: aa2d31d2d006134971863289404c2b26069df325.
+Repository: nrpyles/prospect-bot.
+Baseline: aa2d31d2d006134971863289404c2b26069df325.
 
-## Agreed purpose
+## User direction
 
-Neal wants his existing business outreach system retained and refreshed. The offer is creating or rebuilding websites for local businesses. Christmas lighting and other seasonal trades are additions to the original prospecting categories. This is Neal's own operating tool. Outreach should use his personal email account.
+This is Neal's private tool for finding businesses and managing his own outreach.
+The commercial offer is building or improving a business website and helping improve SEO.
+Retain original business categories and add Christmas lighting and other seasonal trades.
+Discovery should cover Google, public Facebook results, and public Craigslist listings.
+Outreach should use Neal's personally connected email.
 
-The business workflow is: find a business, verify its public information, identify a website opportunity, prepare a private redesigned website concept, draft personal outreach, manage follow ups, and record a sale.
+The requested deliverable is the backend search and CRM with a private dashboard.
+It is not software to sell. A public marketing site, pricing page, subscription billing,
+customer registration flow, website generator, preview hosting, and client portal are outside this build.
+Actual client website work happens separately. The CRM can retain an external project or demo link
+when Neal has one, without generating or hosting websites.
 
-Assumptions: the existing web app remains the foundation; DFW is the initial location preset and locations remain editable. The proposed personal account is nrpyles@gmail.com, based on Neal's supplied contact context; the authenticated connected address is authoritative and must be displayed before sending. No account is connected or message sent by this document.
+Assumptions: retain the existing web foundation; start with DFW and editable locations;
+retain the recognizable dark interface and orange accent. A private web interface lets Neal
+use the backend from phone or computer. Personal Gmail is the initial email provider.
+The actual OAuth connected address is authoritative. No email account is connected by this design.
 
-## Approach decision
+## Recommended approach
 
-Recommended: retain the existing Next.js, Postgres, authentication, Gmail integration, pipeline, industry catalog, and sequence infrastructure. Refactor the experience around website sales and add discovery adapters and a website concept workspace.
+Adapt the existing Next.js, Postgres, authentication, Google discovery, email connection,
+prospect pipeline, and follow up infrastructure into a private CRM.
+This is smaller than rebuilding the older Python dashboard or creating a new product.
 
-Alternative: rebuild the older Python dashboard. This would require recreating persistence, authentication, and email connections already present in the web project. It is not recommended for this request.
+The root route opens the authenticated CRM, redirecting unauthenticated visitors to sign in.
+Access is restricted to Neal's authorized account. Existing authentication and organization
+ownership checks remain. Do not expose open registration or subscription flows.
+Do not delete existing prospect, sequence, lending, or contractor data.
 
-The original categories and workflows remain available. The default workspace opens the agency website outreach flow. Existing lending and contractor records must remain readable and must not be migrated into website prospects automatically.
+## Existing code findings
 
-## Observed baseline
+The existing repository includes a broad industry catalog, pipeline and list views,
+website scoring, contact extraction, AI outreach drafting, Gmail OAuth and outbound logging,
+and sequence due actions. These are code observations, not verified live behavior.
 
-The project already contains a six stage pipeline, a broad industry catalog, website quality scoring, website email extraction, AI draft code, Gmail OAuth, outbound message logging, and sequence due actions. These are code observations, not verified live operation.
+Google discovery currently uses legacy Places endpoints. Facebook is currently a research link.
+Craigslist has no discovery adapter. The current Gmail scope supports sending but not inbox reading.
+Some source failures are swallowed and duplicate detection uses business name alone.
 
-Google discovery currently uses legacy Places endpoints. The lead search defaults to missing or weak websites, deduplicates using business name, and silently ignores some email discovery failures. Facebook is currently a research URL. There is no Craigslist discovery adapter in the inspected code.
+## 1. Search
 
-Gmail currently requests send permission and account identity. It does not provide inbox reading. Therefore the app cannot truthfully claim automatic reply detection using its current connection.
+Keep all existing business categories. Add:
+Christmas Light Installation, Holiday Decorating, Permanent Outdoor Lighting,
+Gutter Cleaning, Leaf Cleanup, Fall Yard Cleanup, Snow and Ice Removal,
+Pool Winterization, and Chimney Cleaning.
 
-## 1. Discovery and seasonal categories
+Use existing categories such as HVAC, landscaping, tree service, window cleaning,
+pressure washing, and junk removal in seasonal presets without duplicating them.
+Keep all original industries available throughout the year.
 
-Preserve all original industries and add explicit categories:
-Christmas Light Installation, Holiday Decorating, Permanent Outdoor Lighting, Gutter Cleaning, Leaf Cleanup, Fall Yard Cleanup, Snow and Ice Removal, Pool Winterization, and Chimney Cleaning.
+Presets: Original Businesses, Fall and Holiday Trades, Winter Trades, and Custom.
+Winter trades are selectable for relevant cities; presets do not assert current demand.
 
-Keep HVAC, tree service, pressure washing, window cleaning, landscaping, and junk removal from the existing catalog. Add seasonal presets that reference these existing categories rather than creating duplicates.
+Sources:
+1. Google business discovery through the Places API, plus website research links.
+2. Public Facebook business pages and promotional posts found through indexed web search.
+3. Public regional Craigslist service listings found through indexed web search.
 
-Presets:
-1. Original website prospects.
-2. Fall and holiday services.
-3. Winter services, available for appropriate markets.
-4. Custom industries and locations.
+Proposed runtime adapters: current Google Places Text Search and a server side Firecrawl
+web search adapter using site constraints for Facebook and regional Craigslist domains.
+Show direct research links and allow paste listing or manual prospect entry when indexing
+does not expose content. A ChatGPT connector is not an application credential.
 
-Seasonality is a search organization aid, not proof of current demand, availability, or suitability in a particular city. Neal can select any category at any time.
+Do not represent public indexed discovery as complete native Facebook or Craigslist access.
+Do not read private groups or assume hidden reply emails are available.
+Keep source URL, query, discovery date, listing date when available, and freshness status.
+Old or expired listings must not be labeled current.
 
-Three discovery source controls:
-1. Google: Google Places search for business listings, ordinary website research, and Google research links. Update the Places adapter using the current Text Search API, explicit field masks, pagination, and service area business support.
-2. Facebook: search indexed public business pages and promotional posts using a server side web search provider with domain constraints. Keep direct Facebook search links and a paste listing action for content Neal can access but indexing cannot retrieve.
-3. Craigslist: search indexed regional service listings with regional domain constraints and provide a regional search link plus paste listing action. Listing dates, expired states, and unknown freshness must be visible.
+A homeowner asking for an installer is not an installer prospect.
+Ambiguous results enter a review queue.
 
-The proposed web search adapter uses Firecrawl's documented search endpoint and site constraints. It must be clearly labeled Public Web Search, not represented as a complete native Facebook or Craigslist integration or guaranteed Google search coverage. A configured provider key belongs on the server. The ChatGPT connector is available for research in this conversation but is not an application runtime credential.
+## 2. CRM
 
-The first version makes no promise to read private groups, retrieve every listing, or extract hidden Craigslist reply addresses. Unavailable sources show a connection or access status. They never silently substitute mock businesses.
+Preserve existing prospect statuses and familiar pipeline behavior.
+Each prospect includes company, industry, city, source links, website, public business contacts,
+website and SEO findings, notes, status, last contact, next action, follow up date,
+offer type, proposed fee, and optional external project or demo link.
 
-## 2. Evidence, normalization, and qualification
+Offer types: Website Build, Website Refresh, SEO Improvements, and Website Plus SEO.
 
-Every candidate records source platform, original URL, query, observed date, available posting date, extraction confidence, and which fields were actually verified.
+Views: Today's Tasks, Prospects, Pipeline, Search History, Outreach, and Settings.
+Filters: city, trade, seasonal preset, source, website state, SEO finding, status, and next action.
 
-A post asking for an installer is a homeowner request, not an installer prospect. Only service providers belong in the prospect queue. Ambiguous results remain in a review queue.
+Deduplicate with place ID, canonical domain, public business phone, and name plus location.
+Do not merge unrelated businesses by name alone. Keep multiple source records on one prospect.
 
-Normalize business identity with Google place ID when available, canonical business website, public business phone, and name plus location. Do not merge two companies solely because their names match. Multiple listings for one company become multiple evidence records on one prospect.
+Website states: Missing Standalone Website, Inspected, Unavailable, and Not Checked.
+A Facebook page or Craigslist listing is not itself a standalone business website.
+A fetch error must remain Unavailable, not automatically become a bad website score.
 
-Website states:
-1. No standalone website found.
-2. Website inspected.
-3. Website unavailable or blocked.
-4. Website not checked.
+Preserve original website quality filters and add a Show All option.
+Businesses with good looking websites can still be SEO prospects.
+Store observed website quality separately from SEO opportunity.
 
-A Facebook page or Craigslist listing is a discovery source, not automatically a standalone website. Failure to fetch a site is not proof the website is poor. Preserve the existing quality controls, while adding Unknown and review states through an additive migration.
+## 3. Website and SEO opportunity checks
 
-The default website sales queue prioritizes verified missing or weak sites. A Show All control retains businesses with good sites and permits manual selection. Evidence based issues may include missing contact access, unclear service area, missing quote path, or poor mobile structure. Builder brand and stale copyright alone are not decisive sales arguments.
+Keep the scope as prospect research and prioritized findings.
+For pages actually inspected, record:
+title and meta description; visible heading structure; service and location clarity;
+contact or quote path; mobile viewport; canonical and robots directives;
+broken internal links within a bounded check; and valid structured data when detectable.
 
-Unknown email remains unknown. Contact provenance is retained. Do not manufacture an owner name, email address, review, quote, response rate, or sales claim.
+Record URL, check date, evidence, confidence, and suggested improvement for each finding.
+Identify checks not run or blocked. A viewport tag is not proof of good mobile usability.
+Missing metadata is an opportunity to review, not proof of lost traffic.
+Noindex on one inspected page does not establish the state of every page.
+Structured data presence does not guarantee enhanced search results.
 
-## 3. Website recreation workspace
+Group findings into Website, On Page SEO, and Local Visibility Research.
+Google listing links can support manual profile research.
+Do not claim rankings, search volume, traffic loss, indexing status, or a full technical audit
+without the appropriate measurements or authorized source.
+SEO check results do not automatically imply a business needs every service.
 
-Each prospect receives a Website Concept tab with:
-original website and source links; verified business facts; service area; phone and email; real services; discovered asset references; missing information; design brief; editable page sections; versioned preview and export controls.
+Opportunity summaries should select one or two substantiated issues Neal can discuss.
+No invented ratings, credentials, testimonials, prices, or performance claims.
 
-Create a new implementation of the business's site using its actual identity and verified facts. The default concept uses a clear hero, service sections, project gallery when sourced assets exist, service area, and a prominent contact or quote action.
+## 4. Personal outreach
 
-For a business without a website, create a concept from verified listing information. Do not fill gaps with fake testimonials, invented licensing, awards, ratings, job counts, prices, or guarantees.
+Use the existing Gmail OAuth path with the actual connected personal account.
+Display the sender address in Settings and before each send.
+Use Neal Pyles as the sender name and website and SEO service language.
+Do not insert mortgage, lender, or old company branding into this campaign.
 
-Keep concepts private and visibly labeled Concept Preview. Escape all imported content. A quote form in an unconnected preview must say it is a preview and must not report that an inquiry was delivered. Real lead delivery is separately configured for a client.
+Generate editable email, DM, and call drafts based on verified business facts.
+Position the offer according to evidence: new website, website improvements,
+SEO help, or a combined project. Do not promise first place on Google or guaranteed leads.
 
-Generated pages use a constrained component schema with validated text and links rather than running arbitrary imported or model produced scripts. Host previews under unguessable access tokens with no search indexing. Tokens can be revoked. No discovery job automatically publishes a website.
+Retain sent history, sequence editor, and follow up due actions.
+Unsent drafts do not become Email Sent.
+A sequence must distinguish scheduled, manually completed, and provider confirmed sent actions.
 
-The concept can be edited and exported as a standalone HTML package with local assets where supplied. External asset references retain their original source. Public client delivery is a separate step after the business approves the content and destination.
+Initially replies are marked manually. The current send only Gmail scope cannot detect replies.
+Mark Replied, Not Interested, or Do Not Contact stops remaining due actions.
+Automatic inbox synchronization is outside this first release.
 
-## 4. Personal email and outreach
+Use provider message IDs and idempotent send intents to avoid duplicate sends.
+If provider acceptance is known but logging fails, show uncertain local reconciliation
+instead of automatically retrying the message.
+Changing the connected account invalidates queued send approvals.
 
-Reuse OAuth for Neal's personal Gmail. Settings and the send screen show the connected address. The from address is taken from the authenticated connection, never from an arbitrary input. Switching to a different address requires reconnection and invalidates queued send approvals.
+No actual outreach, test emails to prospects, or active campaign is authorized by this document.
 
-Use Neal Pyles as sender name and personal website service language. Do not insert Lone Star Financing, lender offers, or old organization signatures into website outreach. Existing nonagency workspaces retain their own settings.
+## 5. Storage and job behavior
 
-Drafting uses verified observations and optional private concept links. Neal can edit every subject and body. Existing manual sending remains available after a successful connection check. Unsent drafts never change a prospect to Email Sent.
+Use additive migrations for prospect evidence, website and SEO findings,
+offer type, next actions, discovery jobs, and send intents.
+Reuse existing tables where appropriate. Back up data before applying migrations.
 
-Preserve the sequence editor and due actions queue. An active sequence must distinguish planned, manually completed, and provider confirmed sent steps.
+Jobs expose queued, running, partial, complete, cancelled, and failed states.
+Per source failures do not erase successful results.
+Show progress counts, warnings, last run, and configurable search limits.
+Missing credentials show setup instructions rather than a successful empty search.
+No mock businesses appear as real results.
 
-Initially replies are recorded manually because the current connection is send only. Mark Replied, Not Interested, or Do Not Contact cancels remaining due outreach. Automatic reply sync requires a later explicit inbox connection design and additional scope; it is not represented as already working.
+Keep provider keys server side. Preserve access checks on every prospect, search, and message.
+Website fetches must reject private network destinations and unsafe redirect targets.
+Escape imported content; external page text is evidence, never executable instructions.
 
-Persist provider message IDs and thread IDs. Add an idempotency record before sending so repeated clicks do not generate duplicate mail. If the provider accepts a message but local logging fails, expose an uncertain delivery state for reconciliation rather than inviting an immediate resend.
+## 6. Verification and release
 
-No real outreach or campaign activation is included in design preparation or testing.
+Read AGENTS.md and the installed Next.js version documentation before changing framework code.
+Validate with targeted behavioral tests, type checks, lint, production build, and mobile inspection.
 
-## 5. Dashboard and storage
+Acceptance:
+1. Original categories and prospect records remain usable.
+2. Seasonal presets add to the original business search.
+3. All three sources return normalized evidence or honest unavailable states.
+4. Duplicate listings are combined without merging unrelated companies.
+5. Blocked sites and stale listings keep their uncertainty.
+6. SEO findings are evidence based and do not invent rankings or traffic.
+7. Good website prospects can be retained for SEO outreach.
+8. The authenticated personal sender is displayed and used correctly.
+9. Send intents resist double clicks and uncertain provider responses.
+10. Replied and Do Not Contact stop future due actions.
+11. Private access works on phone and desktop.
+12. The root opens the private CRM; there is no public sales funnel or software billing flow.
 
-Preserve the recognizable dark interface, orange accent, existing pipeline stages, manual prospect editing, original industry filters, and notes.
+Live integration checks remain unverified until runtime keys and email connection are available.
+Do not claim the app is rebuilt, deployed, or searching live before implementation and validation.
 
-Add source and seasonal preset filters, website concept status, evidence drawer, connected sender badge, and daily research and follow up tasks. Provide list and pipeline views suitable for phone use.
+## Implementation sequence after design review
 
-Additive database structures:
-discovery jobs and source run statuses; candidate review records; prospect evidence; verified website state; versioned website concepts; private preview tokens; and outbound send intent records.
+1. Private application entry and additive data changes.
+2. Original and seasonal industry catalog.
+3. Google, Facebook, and Craigslist discovery adapters and review queue.
+4. Bounded website and SEO checks.
+5. Prospect research views and task tracking.
+6. Personal sender and follow up correctness.
+7. Validation and deployment preparation.
 
-Maintain organization ownership checks on every query and mutation even though the initial use is Neal's own workspace. Back up records before any migration. Do not remove original prospects or overwrite existing website assessments.
+## References
 
-Source jobs have queued, running, partial, complete, failed, and cancelled states. Individual source failures do not erase successful results. Show counts, warnings, last successful run, and timestamps. Limit job volume through a visible configurable run budget.
-
-## 6. Runtime and verification
-
-The first release continues the existing web deployment model, with durable database storage and server side background jobs for discovery. Configuration must clearly distinguish required, optional, and connected services. Missing credentials create actionable statuses, not empty success screens.
-
-Follow AGENTS.md and read the installed Next.js 16 documentation before changing framework code.
-
-Required acceptance checks:
-1. Existing categories, prospects, statuses, notes, and sequence due actions survive migrations.
-2. Seasonal categories are selectable with correct query synonyms.
-3. Each source adapter normalizes captured fixtures and handles empty, failed, and partially completed searches honestly.
-4. Repeated listings merge evidence without merging unrelated companies.
-5. Expired Craigslist listings, blocked websites, and homeowner request posts remain appropriately flagged.
-6. Private preview links cannot expose another prospect, execute imported scripts, or claim form delivery.
-7. Outreach uses the actual connected personal account, shows that address, and cannot send twice from the same send intent.
-8. Replied and Do Not Contact states cancel future due actions.
-9. Search, prospect details, concept editing, and outreach are usable on mobile.
-10. Type checking, linting, production build, and targeted behavioral tests pass. Live provider tests remain explicitly unverified when deployment credentials are unavailable.
-
-## Review and implementation sequence
-
-This document is a concrete design for review. No product code or deployment is changed.
-
-After design approval, write the implementation plan against the inspected repository and then execute in dependency order: additive data and seasonal catalog, discovery adapters, website concepts, personal sender and sequence correctness, dashboard integration, and validation.
-
-Do not describe the system as rebuilt, deployed, searching live, or sending from Neal's email until those stages have been implemented and verified.
-
-## Technical references
-
-Existing code baseline:
+Existing project:
 https://github.com/nrpyles/prospect-bot/tree/aa2d31d2d006134971863289404c2b26069df325
 
 Google Text Search:
 https://developers.google.com/maps/documentation/places/web-service/text-search
 
-Google legacy migration:
-https://developers.google.com/maps/documentation/places/web-service/legacy/migrate-text
-
-Public web search and domain operators:
+Public web search:
 https://docs.firecrawl.dev/api-reference/endpoint/search
-
-Discovery observations in this session found Facebook promotional results and Craigslist service listings. Several Craigslist results were months old, supporting explicit freshness states rather than treating every search result as currently active.
