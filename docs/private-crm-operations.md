@@ -4,13 +4,15 @@
 
 Use the existing application configuration and a separate review branch. Do not replace an existing production deployment until the production build, migration rehearsal, private login, and browser checks pass.
 
-Run the web and discovery worker as separate services sharing the same database and owner configuration. Web command: `pnpm start` after `pnpm build`. Worker command: `pnpm worker`. The worker is not a public HTTP service and should not receive a public domain or web health check. A process health endpoint for the web service is `/api/health`; this endpoint doesn’t claim provider or database readiness.
+On Vercel with Fluid compute, the Searches page processes one saved search batch per authenticated POST while the page is open. The route allows 300 seconds, bounds search work to 240 seconds and each website inspection to 8 seconds. Closing the page stops future batches; an in-flight batch can still finish and save. Reopening Searches resumes unfinished jobs. A processing request error stops automatic retries and shows Resume search. Search services still need their configured credentials and may incur provider charges.
+
+A separate persistent worker remains an optional alternative: run `pnpm worker` with the same database and provider configuration. It is not a public HTTP service. Web command outside Vercel: `pnpm start` after `pnpm build`. `/api/health` does not claim provider or database readiness.
 
 ## Owner access
 
 The explicitly requested owner email is nrpyles@gmail.com, pinned in src/lib/private-access.ts. The authenticated Clerk account must contain that verified email; a verified secondary email is accepted too. Unverified and unrelated addresses are denied before workspace creation. Legacy PRIVATE_OWNER_CLERK_ID and PRIVATE_OWNER_EMAIL environment variables no longer choose the owner. Keep sign ups disabled in the Clerk application and use the existing owner account. If that email has no Clerk account yet, the identity provider must provision or link it before sign in can succeed.
 
-Set NEXT_PUBLIC_APP_URL to the actual web URL. Use the matching personal Gmail OAuth redirect URL in Google. No new domain purchase is necessary to test an existing deployment URL.
+Set NEXT_PUBLIC_APP_URL to the actual web URL. Use the matching personal Gmail OAuth redirect URL in Google. See [Gmail setup](gmail-setup.md) for the exact current deployment values. No new domain purchase is necessary to test an existing deployment URL.
 
 ## Preserve data
 
@@ -34,7 +36,7 @@ Google uses Places Text Search. The server may reuse the existing organization G
 
 Searches start only from an explicit user action. Defaults are 30 source/city/trade combinations, 50 saved or review candidates, and 10 results per query. Server limits are 100 combinations, 200 candidates, and 20 results per query. These are application volume limits, not a guaranteed monetary spending cap. Configure provider billing limits separately.
 
-A queued job without a heartbeat means the worker hasn’t picked it up. Check the worker process and database connection. Running units renew a 60 second lease every 15 seconds. After a worker restart, expired leases can be reclaimed. Successful results survive source failures. Partial and failed results include notes. No mock leads are substituted.
+On Vercel, keep Searches open to process queued jobs and inspect any Resume search error. For a separately hosted worker, a queued job without a heartbeat means the worker has not picked it up; check that process and its database connection. Running units renew a 60 second lease every 15 seconds. After a worker restart, expired leases can be reclaimed. Successful results survive source failures. Partial and failed results include notes. No mock leads are substituted.
 
 Review social listings before accepting them. Confirm the company name, contact information, website and date using the original source. A homeowner asking for a provider is not a business lead.
 

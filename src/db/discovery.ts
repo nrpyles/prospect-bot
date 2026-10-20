@@ -23,11 +23,24 @@ export async function listSearchJobs(orgId:string){const rows=await conn().selec
 export async function cancelSearch(orgId:string,id:string){
  const rows=await conn().update(jobs).set({state:'cancelled'}).where(and(eq(jobs.id,id),eq(jobs.orgId,orgId))).returning({id:jobs.id});if(!rows.length)throw new Error('Search not found');
 }
-export async function claimSearchUnit(workerId:string){
+export type SearchScope={orgId:string;jobId:string};
+export async function claimSearchUnit(workerId:string,scope?:SearchScope){
  return conn().transaction(async tx=>{
+ // Lock the job before a unit, for both web and optional CLI workers. A
+ // second statement checks live leases using a fresh snapshot under this lock.
+ const jobRows=await tx.execute<{id:string}>(sql`SELECT j.id FROM discovery_jobs j
+ WHERE j.state IN ('queued','running')
+ ${scope?sql`AND j.id=${scope.jobId} AND j.org_id=${scope.orgId}`:sql``}
+ AND EXISTS (SELECT 1 FROM discovery_units u WHERE u.job_id=j.id AND (u.state='queued' OR (u.state='running' AND u.lease_until < now())))
+ AND NOT EXISTS (SELECT 1 FROM discovery_units u WHERE u.job_id=j.id AND u.state='running' AND u.lease_until >= now())
+ ORDER BY j.created_at,j.id FOR UPDATE OF j SKIP LOCKED LIMIT 1`);
+ const claimedJob=jobRows[0];if(!claimedJob)return null;
+ const [running]=await tx.select({id:units.id}).from(units).where(and(eq(units.jobId,claimedJob.id),eq(units.state,'running'),sql`${units.leaseUntil} >= now()`)).limit(1);
+ if(running)return null;
  const rows=await tx.execute<{id:string;job_id:string;source:string;city:string;industry:string}>(sql`WITH candidate AS (
  SELECT u.id FROM discovery_units u JOIN discovery_jobs j ON j.id=u.job_id
  WHERE j.state IN ('queued','running') AND (u.state='queued' OR (u.state='running' AND u.lease_until < now()))
+ AND j.id=${claimedJob.id}
  ORDER BY j.created_at,u.id FOR UPDATE OF u SKIP LOCKED LIMIT 1)
  UPDATE discovery_units u SET state='running',worker_id=${workerId},lease_until=now()+interval '60 seconds' FROM candidate c WHERE u.id=c.id RETURNING u.*`);
  const unit=rows[0];if(!unit)return null;

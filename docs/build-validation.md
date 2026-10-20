@@ -71,3 +71,13 @@ At Neal’s request, private CRM access now requires the verified email nrpyles@
 ## Setup failure investigation
 
 The owner supplied a screenshot of the generic setup failure screen on October 20. That screen previously combined Clerk account loading and workspace database exceptions, so it could not establish the failing component. Owner-only, sanitized failure codes now distinguish absent DATABASE_URL, missing schema, credentials, permissions, connection and record conflicts from a sign in service failure. Raw provider messages, SQL and credentials are not rendered. Three diagnostic regressions were observed failing then passing. Live backend configuration and the actual failure code still require the deployed screen or Vercel server logs; this change improves diagnosis and does not declare the underlying setup issue fixed.
+
+
+## Vercel search execution follow-up, October 20
+
+After the owner reported working login and database setup, source inspection found that enqueueing and polling never invoked the separately hosted discovery worker on Vercel. The Searches page now invokes an authenticated POST for one owner-scoped, leased batch per request. It stops starting batches on page exit, resumes unfinished work when reopened, and exposes a manual Resume search action after transport failures. The optional CLI worker remains supported. Vercel work is bounded to 240 seconds, with an 8-second inspection budget per website and a 300-second route duration.
+
+Four new execution regressions were observed failing before the implementation and passing after it. Native Node unit and integration test command: 38 passed, five real database tests explicitly skipped because TEST_DATABASE_URL is unavailable. The added skipped database regression covers owner/job scoping, a live batch blocking another tab, and expired lease recovery. TypeScript 5.9 syntax transpilation passed for 127 files; this is not semantic type checking. `pnpm test` attempted an automatic dependency installation and was blocked by the existing registry 403 and supply-chain checks; no policy bypass was used. Vercel build status and a configured first live search must still be checked. No provider search or email was sent by this change.
+
+
+The focused read-only review found two issues, both addressed before publication: all claim paths now lock the job and exclude live units, including mixed CLI and web execution; scoped database assertions share the original fixture so they do not reuse an ended cached client. The database test additionally issues simultaneous scoped claims. Database execution remains skipped, not claimed as verified. Production build and authenticated browser/provider execution remain deployment checks.
