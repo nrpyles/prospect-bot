@@ -22,3 +22,9 @@ test('malformed and unsupported URLs fail validation without throwing', () => {
   }
   assert.equal(guards.isOptionalHttpUrl('http://example.com/contact?from=crm'), true);
 });
+
+test('copied website links accept surrounding whitespace without changing the destination',async()=>{
+ const {externalUrl}=await import('../../src/lib/crm-view.ts');
+ for(const [input,expected] of [[' https://example.com/contact ','https://example.com/contact'],['\nwww.example.com/contact\t','https://www.example.com/contact'],['\u200bhttps://example.com/contact\u200b','https://example.com/contact']])assert.equal(externalUrl(input),expected);
+ assert.equal(externalUrl('ftp://example.com/file'),undefined);
+});

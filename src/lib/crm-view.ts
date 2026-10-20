@@ -6,4 +6,12 @@ export function filterProspects(items:Prospect[],f:CrmFilters):Prospect[]{return
  if(f.search&&!`${p.name} ${p.city} ${p.ownerName??''} ${p.industry}`.toLowerCase().includes(f.search.toLowerCase()))return false;
  return (!f.city||p.city===f.city)&&(!f.industry||p.industry===f.industry)&&(!f.source||p.source===f.source)&&(!f.websiteState||(p.researchState??'unchecked')===f.websiteState)&&(!f.offerType||p.offerType===f.offerType)&&(!f.status||p.status===f.status);
 });}
-export function externalUrl(value:string|undefined|null):string|undefined{try{if(!value)return undefined;const u=new URL(/^https?:\/\//i.test(value)?value:`https://${value}`);if(!['http:','https:'].includes(u.protocol)||u.username||u.password)return undefined;return u.href;}catch{return undefined;}}
+export function externalUrl(value:string|undefined|null):string|undefined{
+ try{
+  const clean=value?.replace(/^[\s\u200B\uFEFF]+|[\s\u200B\uFEFF]+$/g,'');if(!clean)return undefined;
+  if(/^[a-z][a-z0-9+.-]*:/i.test(clean)&&!/^https?:\/\//i.test(clean))return undefined;
+  const u=new URL(/^https?:\/\//i.test(clean)?clean:`https://${clean}`);
+  if(!['http:','https:'].includes(u.protocol)||u.username||u.password)return undefined;
+  return u.href;
+ }catch{return undefined;}
+}
