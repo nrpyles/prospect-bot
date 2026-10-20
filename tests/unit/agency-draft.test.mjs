@@ -32,3 +32,7 @@ test('basic drafts use actual researched services and return their source',()=>{
  assert.equal(d.sourceUrl,'https://example.com/services');assert.ok(research.pages[0].content.toLowerCase().includes(d.sourceQuote.toLowerCase()));
  assert.doesNotMatch(d.body,/canonical|No nonempty/);
 });
+
+test('a known website cannot silently produce a generic basic draft without page research',()=>{
+ assert.throws(()=>m.buildTemplateDraft({prospect:{...p,website:'https://example.com'},findings:[f],offerType:'website_plus_seo',senderName:'Neal'}),/research.*website/i);
+});

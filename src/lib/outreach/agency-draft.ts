@@ -12,6 +12,7 @@ const TEMPLATE_OFFER:Record<OfferType,string>={
 };
 export function buildTemplateDraft(input:DraftInput):DraftOutput{
  const p=input.prospect;
+ if(p.website&&!input.research?.pages.length)throw new Error("Research this business website before writing its email.");
  // Match only short service phrases present in saved page content. Never turn
  // internal HTML audit findings into a cold email or imply an unobserved defect.
  const phrases=[...new Set([p.industry,...SERVICE_PHRASES].map(x=>x.toLowerCase()))].filter(x=>x.length>=4);
