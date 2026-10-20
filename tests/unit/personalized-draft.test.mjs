@@ -7,7 +7,7 @@ test('personalized draft context includes service and about content with source 
  const result=draft.buildAgencyDraftContext(input);const data=JSON.parse(result.user.split('\n').slice(1).join('\n'));
  assert.ok(JSON.stringify(data).includes('seasonal takedown and storage'));
  assert.ok(JSON.stringify(data).includes('https://example.com/about'));
- assert.match(result.system,/40 to 80/);assert.match(result.system,/sourceQuote/);
+ assert.match(result.system,/sourceQuote/);
 });
 test('personalized output must use a quote from an actually researched page',()=>{
  assert.equal(typeof draft.validatePersonalizedDraft,'function');
@@ -16,7 +16,7 @@ test('personalized output must use a quote from an actually researched page',()=
  assert.throws(()=>draft.validatePersonalizedDraft({...good,sourceQuote:'We install roofline lights'},research,[]),/source|quote/i);
  assert.throws(()=>draft.validatePersonalizedDraft({...good,sourceUrl:'https://unrelated.example'},research,[]),/source/i);
  assert.throws(()=>draft.validatePersonalizedDraft({...good,sourceQuote:'You are losing hundreds of leads every month.'},research,[]),/source|quote/i);
- assert.throws(()=>draft.validatePersonalizedDraft({...good,body:Array(120).fill('word').join(' ')},research,[]),/short|words/i);
+
 });
 test('recent duplicate emails are rejected even if punctuation and case change',()=>{
  assert.equal(typeof draft.validatePersonalizedDraft,'function');
@@ -39,4 +39,15 @@ test('AI output cannot use an audit note as the sourced business detail',()=>{
  const technical={...research,pages:[{url:'https://example.com',title:'Audit note',content:'No canonical link was found on this page.',truncated:false}]};
  const body="Hey there, no canonical link was found on this page. I help local businesses improve their websites and SEO. Would you like me to send a couple of ideas for your business?";
  assert.throws(()=>draft.validatePersonalizedDraft({subject:'a website idea',body,sourceUrl:'https://example.com',sourceQuote:'No canonical link was found on this page.'},technical,[]),/technical|audit|business detail/i);
+});
+
+test('researched drafts are accepted without minimum or maximum word counts',()=>{
+ const base={subject:'a few website ideas for your seasonal lighting and storage services',sourceUrl:research.pages[0].url,sourceQuote:'seasonal takedown and storage'};
+ const short='Seasonal takedown and storage. Want two ideas?';
+ const long=`Your site mentions seasonal takedown and storage. ${Array(180).fill('Useful service information helps customers understand their options.').join(' ')} Would you like a couple of ideas?`;
+ for(const body of [short,long])assert.doesNotThrow(()=>draft.validatePersonalizedDraft({...base,body},research,[]));
+});
+
+test('removing word limits does not allow an empty email',()=>{
+ assert.throws(()=>draft.validatePersonalizedDraft({subject:' ',body:' ',sourceUrl:research.pages[0].url,sourceQuote:'seasonal takedown and storage'},research,[]),/empty/i);
 });

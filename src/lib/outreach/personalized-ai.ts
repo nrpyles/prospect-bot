@@ -6,7 +6,11 @@ export async function draftPersonalizedEmail(input:Input){
  const apiKey=process.env.ANTHROPIC_API_KEY;if(!apiKey)throw new Error('AI drafting is not configured');
  const context=buildAgencyDraftContext(input);
  const client=new Anthropic({apiKey,timeout:90000,maxRetries:0});
- const response=await client.messages.create({model:'claude-sonnet-4-6',max_tokens:1000,system:context.system,messages:[{role:'user',content:context.user}]});
+ const response=await client.messages.create({model:'claude-opus-5-5',max_tokens:8192,system:context.system,messages:[{role:'user',content:context.user}]}).catch((error:unknown)=>{
+  if(error&&typeof error==='object'&&'status' in error&&error.status===404)throw new Error("Claude Opus 5.5 isn't available to this Anthropic API account. Check model access in the Anthropic Console.");
+  throw error;
+ });
+ if(response.stop_reason==='max_tokens')throw new Error('The AI response reached its provider output limit before finishing. Generate another version.');
  const content=response.content.find(block=>block.type==='text');
  if(!content||content.type!=='text')throw new Error('The AI returned no email text. Generate another version.');
  let parsed:unknown;
