@@ -56,11 +56,12 @@ export default function PrivacyPage() {
         <Section title="AI processing">
           <p>
             When you request a personalized CRM email, business details and researched
-            website excerpts are sent to OpenAI to generate the draft. Saved research
+            website excerpts are sent to Google Gemini or OpenAI, depending on your configured provider, to generate the draft. On the Gemini free API tier, Google may use prompts and responses to improve its products. Saved research
             and recent drafts are retained in your workspace to support review and
             avoid repeated messages. Other writing features may use Anthropic.
             These providers process data under their respective privacy policies:
             {" "}<a href="https://openai.com/policies/privacy-policy/" target="_blank" rel="noopener noreferrer" className="text-[color:var(--color-accent)] underline">OpenAI</a>
+            {", "}<a href="https://ai.google.dev/gemini-api/terms" target="_blank" rel="noopener noreferrer" className="text-[color:var(--color-accent)] underline">Google Gemini</a>
             {" and "}<a href="https://www.anthropic.com/legal/privacy" target="_blank" rel="noopener noreferrer" className="text-[color:var(--color-accent)] underline">Anthropic</a>.
 
           </p>
