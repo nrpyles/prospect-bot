@@ -1,10 +1,12 @@
-import {websiteChanged} from '@/lib/crm-guards';
+import {assessOpportunity,refreshSuggestedFields} from '@/lib/discovery/opportunities';
+import {auditMatchesWebsite,websiteChanged} from '@/lib/crm-guards';
+import type {AuditResult} from '@/lib/crm-types';
 /**
  * Prospect queries scoped to an organization.
  */
 import { db } from "./index";
 import { prospects, prospectResearch, type NewProspect, type Prospect as DbProspect } from "./schema";
-import { and, eq, desc } from "drizzle-orm";
+import { and, eq, desc, sql } from "drizzle-orm";
 import type { Prospect as UiProspect } from "@/lib/mock-prospects";
 
 /** Convert a DB row to the UI Prospect shape used throughout the dashboard. */
@@ -43,12 +45,11 @@ export function toUiProspect(row: DbProspect): UiProspect {
 
 export async function listProspects(orgId: string): Promise<UiProspect[]> {
   if (!db) throw new Error("DATABASE_URL is not set");
-  const rows = await db
-    .select()
-    .from(prospects)
-    .where(eq(prospects.orgId, orgId))
-    .orderBy(desc(prospects.createdAt));
-  return rows.map(toUiProspect);
+  // Directory refreshes need observations, not the potentially large saved page corpus.
+  const rows = await db.select({prospect:prospects,audit:sql<AuditResult|null>`${prospectResearch.audit} - 'siteResearch'`}).from(prospects)
+    .leftJoin(prospectResearch,and(eq(prospectResearch.prospectId,prospects.id),eq(prospectResearch.orgId,prospects.orgId)))
+    .where(eq(prospects.orgId,orgId)).orderBy(desc(prospects.createdAt));
+  return rows.map(({prospect,audit})=>({...toUiProspect(prospect),opportunity:assessOpportunity(audit&&auditMatchesWebsite(audit,prospect.website)?audit:null,{website:prospect.website,googlePlaceId:prospect.googlePlaceId})}));
 }
 
 export async function insertProspects(orgId: string, items: Omit<NewProspect, "orgId">[]): Promise<UiProspect[]> {
@@ -72,8 +73,16 @@ export async function updateProspect(
     const [previous] = await tx.select().from(prospects).where(and(eq(prospects.id,id),eq(prospects.orgId,orgId))).for('update');
     if(!previous)return null;
     const changed=patch.website!==undefined&&websiteChanged(previous.website,patch.website);
-    if(changed)await tx.delete(prospectResearch).where(and(eq(prospectResearch.orgId,orgId),eq(prospectResearch.prospectId,id)));
-    const [row]=await tx.update(prospects).set({...patch,...(changed?{researchState:'unchecked',quality:null,qualityIssues:[]}:{}),updatedAt:new Date()}).where(and(eq(prospects.id,id),eq(prospects.orgId,orgId))).returning();
+    const resetGenerated:Partial<NewProspect>={};
+    if(changed){
+      const [research]=await tx.select({audit:prospectResearch.audit}).from(prospectResearch).where(and(eq(prospectResearch.orgId,orgId),eq(prospectResearch.prospectId,id)));
+      const opportunity=research?.audit&&auditMatchesWebsite(research.audit,previous.website)?assessOpportunity(research.audit,{website:previous.website,googlePlaceId:previous.googlePlaceId}):null;
+      const reset=refreshSuggestedFields(previous,opportunity,null);
+      if('offerType' in reset&&(patch.offerType===undefined||patch.offerType===previous.offerType))resetGenerated.offerType=null;
+      if('nextAction' in reset&&(patch.nextAction===undefined||patch.nextAction===previous.nextAction))resetGenerated.nextAction=null;
+      await tx.delete(prospectResearch).where(and(eq(prospectResearch.orgId,orgId),eq(prospectResearch.prospectId,id)));
+    }
+    const [row]=await tx.update(prospects).set({...patch,...(changed?{researchState:'unchecked',quality:null,qualityIssues:[],...resetGenerated}:{}),updatedAt:new Date()}).where(and(eq(prospects.id,id),eq(prospects.orgId,orgId))).returning();
     return toUiProspect(row);
   });
 }

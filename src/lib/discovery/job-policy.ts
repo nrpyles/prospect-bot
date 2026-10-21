@@ -1,4 +1,5 @@
 import {INDUSTRIES,QUALITIES} from '../pipeline.ts';
+import {OPPORTUNITY_FOCUSES,type OpportunityFocus} from './opportunities.ts';
 import type {JobState,SearchJobConfig} from '../crm-types.ts';
 export function validateSearchConfig(input:Record<string,unknown>):SearchJobConfig{
  const strings=(key:string)=>{const x=input[key];if(!Array.isArray(x)||!x.length||x.some(v=>typeof v!=='string'||!v.trim()||v.length>120))throw new Error(`Choose valid ${key}`);return x.map(v=>(v as string).trim());};
@@ -10,7 +11,9 @@ export function validateSearchConfig(input:Record<string,unknown>):SearchJobConf
  const maxUnits=number('maxUnits',30,100);
  if(cities.length*industries.length*sources.length>maxUnits)throw new Error('Search exceeds the selected combination budget. Choose fewer cities or trades.');
  const quality=input.qualityFilter??null;if(quality!==null&&(!Array.isArray(quality)||quality.some(q=>!QUALITIES.includes(q as typeof QUALITIES[number]))))throw new Error('Invalid website quality filter');
- return {cities:[...new Set(cities)],industries:[...new Set(industries)],sources:[...new Set(sources)] as SearchJobConfig['sources'],qualityFilter:quality as string[]|null,maxUnits,maxCandidates:number('maxCandidates',50,200),maxResultsPerQuery:number('maxResultsPerQuery',10,20)};
+ const focus=input.opportunityFocus??'website_and_seo';
+ if(typeof focus!=='string'||!Object.hasOwn(OPPORTUNITY_FOCUSES,focus))throw new Error('Choose a valid opportunity focus');
+ return {cities:[...new Set(cities)],industries:[...new Set(industries)],sources:[...new Set(sources)] as SearchJobConfig['sources'],opportunityFocus:focus as OpportunityFocus,qualityFilter:quality as string[]|null,maxUnits,maxCandidates:number('maxCandidates',50,200),maxResultsPerQuery:number('maxResultsPerQuery',20,20)};
 }
 export function deriveJobState(states:string[],cancelled:boolean):JobState{
  if(cancelled)return 'cancelled';

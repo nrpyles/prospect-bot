@@ -16,6 +16,7 @@ export type Prospect = {
   externalProjectUrl?: string;
   outreachDisposition?: import("./crm-types").OutreachDisposition;
   qualityIssues: string[];
+  opportunity?: import("./discovery/opportunities").Opportunity;
   rating?: string;
   reviewCount?: number;
   googlePlaceId?: string;

@@ -31,3 +31,12 @@ test('public search is source constrained and cannot fabricate current freshness
  });assert.equal(r.candidates[0].reviewRequired,true);assert.equal(r.candidates[0].businessName,null);assert.equal(r.candidates[0].evidence[0].freshness,'unknown');
  await assert.rejects(w.searchPublicWeb({source:'facebook',city:'Dallas',industry:'Roofing',limit:2},{},undefined),/not configured/);
 });
+test('social and directory listings are not treated as business websites while hosted business sites are retained',()=>{
+ for(const value of ['https://nextdoor.com/pages/acme','https://www.thumbtack.com/tx/acme','https://linktr.ee/acme','https://maps.app.goo.gl/abc'])assert.equal(n.standaloneWebsite(value),null);
+ assert.equal(n.standaloneWebsite(' https://sites.google.com/view/acme '),'https://sites.google.com/view/acme');
+});
+test('Google records the absence of a website link without claiming the business has no website',async()=>{
+ const out=await g.searchGoogle({city:'Frisco, TX',industry:'Roofing',limit:1},{apiKey:'test'},undefined,async()=>new Response(JSON.stringify({places:[{id:'p',displayName:{text:'Acme'},websiteUri:'https://facebook.com/acme'}]})));
+ assert.equal(out.candidates[0].website,null);assert.match(out.candidates[0].evidence[0].snippet,/standalone|social|directory/i);
+ assert.equal(out.candidates[0].evidence[0].verifiedFields.includes('website'),false);
+});

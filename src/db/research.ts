@@ -1,3 +1,4 @@
+import {assessOpportunity,refreshSuggestedFields} from '@/lib/discovery/opportunities';
 import {auditMatchesWebsite,mergeWebsiteResearch} from '@/lib/crm-guards';
 import {and,eq} from 'drizzle-orm';
 import {db} from './index';
@@ -7,13 +8,15 @@ import {validatePersonalizedDraft} from '@/lib/outreach/agency-draft';
 export async function saveFindings(orgId:string,prospectId:string,audit:AuditResult):Promise<void>{
  if(!db) throw new Error('Database is not configured');
  await db.transaction(async tx=>{
-  const [owned]=await tx.select({id:prospects.id,website:prospects.website}).from(prospects).where(and(eq(prospects.id,prospectId),eq(prospects.orgId,orgId))).for('update');
+  const [owned]=await tx.select({id:prospects.id,website:prospects.website,googlePlaceId:prospects.googlePlaceId,offerType:prospects.offerType,nextAction:prospects.nextAction}).from(prospects).where(and(eq(prospects.id,prospectId),eq(prospects.orgId,orgId))).for('update');
   if(!owned) throw new Error('Prospect not found');
   if(!auditMatchesWebsite(audit,owned.website))throw new Error('The website changed during research. Check the current website again.');
   const [previous]=await tx.select({audit:prospectResearch.audit}).from(prospectResearch).where(and(eq(prospectResearch.orgId,orgId),eq(prospectResearch.prospectId,prospectId))).for('update');
   audit=mergeWebsiteResearch(audit,previous?.audit??null);
   await tx.insert(prospectResearch).values({orgId,prospectId,audit}).onConflictDoUpdate({target:[prospectResearch.orgId,prospectResearch.prospectId],set:{audit,checkedAt:new Date()}});
-  await tx.update(prospects).set({researchState:audit.state,updatedAt:new Date()}).where(and(eq(prospects.id,prospectId),eq(prospects.orgId,orgId)));
+  const opportunity=assessOpportunity(audit,owned);
+  const previousOpportunity=previous?.audit&&auditMatchesWebsite(previous.audit,owned.website)?assessOpportunity(previous.audit,owned):null;
+  await tx.update(prospects).set({researchState:audit.state,quality:opportunity.quality,qualityIssues:opportunity.reasons,...refreshSuggestedFields(owned,previousOpportunity,opportunity),updatedAt:new Date()}).where(and(eq(prospects.id,prospectId),eq(prospects.orgId,orgId)));
  });
 }
 export async function listFindings(orgId:string,prospectId:string):Promise<Finding[]>{return (await getResearch(orgId,prospectId))?.findings??[];}

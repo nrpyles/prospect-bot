@@ -14,9 +14,11 @@ export async function searchGoogle(config:SearchInput,credentials:{apiKey?:strin
   for(const place of data.places??[]){
    if(!place.id||!place.displayName?.text||place.businessStatus==='CLOSED_PERMANENTLY')continue;
    const now=new Date().toISOString();
+   const website=standaloneWebsite(place.websiteUri);
+   const websiteNote=website?'Google listing includes a business website link.':place.websiteUri?'Google listing has no standalone website link; its listed link needs review.':'Google listing has no website link. Check for an existing website before offering a build.';
    candidates.push({id:randomUUID(),displayTitle:place.displayName.text,businessName:place.displayName.text,city:config.city,industry:config.industry,
-    website:standaloneWebsite(place.websiteUri),phone:place.nationalPhoneNumber??null,email:null,placeId:place.id,rating:place.rating!==undefined?String(place.rating):undefined,reviewCount:place.userRatingCount,address:place.formattedAddress,
-    providerStatus:'provider',reviewRequired:false,evidence:[{id:randomUUID(),source:'google',url:`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.displayName.text)}&query_place_id=${encodeURIComponent(place.id)}`,query,observedAt:now,publishedAt:null,verifiedAt:now,freshness:'current',snippet:place.displayName.text,verifiedFields:['businessName',...(place.websiteUri?['website']:[]),...(place.nationalPhoneNumber?['phone']:[])]}]});
+    website,phone:place.nationalPhoneNumber??null,email:null,placeId:place.id,rating:place.rating!==undefined?String(place.rating):undefined,reviewCount:place.userRatingCount,address:place.formattedAddress,
+    providerStatus:'provider',reviewRequired:false,evidence:[{id:randomUUID(),source:'google',url:`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.displayName.text)}&query_place_id=${encodeURIComponent(place.id)}`,query,observedAt:now,publishedAt:null,verifiedAt:now,freshness:'current',snippet:`${place.displayName.text}. ${websiteNote}${!website&&place.websiteUri?` Listed link: ${String(place.websiteUri).slice(0,500)}`:''}`,verifiedFields:['businessName',...(website?['website']:[]),...(place.nationalPhoneNumber?['phone']:[])]}]});
    if(candidates.length>=limit)break;
   }
   pageToken=data.nextPageToken;

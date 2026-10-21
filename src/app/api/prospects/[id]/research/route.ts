@@ -1,5 +1,7 @@
 import {NextResponse} from 'next/server';import {and,eq} from 'drizzle-orm';import {getUserContext} from '@/lib/server-context';import {db} from '@/db';import {prospects} from '@/db/schema';import {getResearch,listEvidence,saveFindings} from '@/db/research';import {inspectWebsite} from '@/lib/research/website-audit';
 import {researchWebsite} from '@/lib/research/site-research';import {z} from 'zod';
+import {toUiProspect} from '@/db/prospects';import {assessOpportunity} from '@/lib/discovery/opportunities';
+import {auditMatchesWebsite} from '@/lib/crm-guards';
 export const runtime='nodejs';export const maxDuration=300;
 async function owned(orgId:string,id:string){if(!db||!/^[\da-f-]{36}$/i.test(id))return null;const [p]=await db.select().from(prospects).where(and(eq(prospects.id,id),eq(prospects.orgId,orgId))).limit(1);return p??null;}
 export async function GET(_req:Request,{params}:{params:Promise<{id:string}>}){const ctx=await getUserContext();if(!ctx)return NextResponse.json({error:'Unauthorized'},{status:401});const {id}=await params;if(!await owned(ctx.orgId,id))return NextResponse.json({error:'Prospect not found'},{status:404});return NextResponse.json({audit:await getResearch(ctx.orgId,id),evidence:await listEvidence(ctx.orgId,id)});}
@@ -14,6 +16,6 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
    audit=await inspectWebsite(p.website,{signal:AbortSignal.timeout(15000),page:homeHtml&&homeUrl?{html:homeHtml,url:homeUrl}:undefined});
    audit={...audit,siteResearch,checksRun:[...audit.checksRun,`Business content researched: ${siteResearch.pages.length} pages`]};
   }else audit=await inspectWebsite(p.website);
-  await saveFindings(ctx.orgId,id,audit);return NextResponse.json({audit,evidence:await listEvidence(ctx.orgId,id)});
+  await saveFindings(ctx.orgId,id,audit);const refreshed=await owned(ctx.orgId,id);if(!refreshed)return NextResponse.json({error:'Prospect no longer available'},{status:404});if(!auditMatchesWebsite(audit,refreshed.website))return NextResponse.json({error:'The website changed during research. Research its current website again.'},{status:409});return NextResponse.json({audit,evidence:await listEvidence(ctx.orgId,id),prospect:{...toUiProspect(refreshed),opportunity:assessOpportunity(audit,{website:refreshed.website,googlePlaceId:refreshed.googlePlaceId})}});
  }catch(error){return NextResponse.json({error:error instanceof Error?error.message:'Website research could not finish'},{status:400});}
 }

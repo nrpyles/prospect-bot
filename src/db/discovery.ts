@@ -1,10 +1,11 @@
-import {auditMatchesWebsite} from '@/lib/crm-guards';
+import {auditMatchesWebsite,mergeWebsiteResearch} from '@/lib/crm-guards';
 import {and,eq,desc,inArray,sql} from 'drizzle-orm';
 import {db} from './index';
 import {discoveryJobs as jobs,discoveryUnits as units,discoveryCandidates as candidates,prospects,prospectEvidence,prospectResearch} from './schema';
 import type {AuditResult,Candidate,JobSummary,SearchJobConfig} from '@/lib/crm-types';
 import {deriveJobState} from '@/lib/discovery/job-policy';
 import {matchCandidate} from '@/lib/discovery/normalize';
+import {assessOpportunity,matchesOpportunity,prioritizeSearchItems,refreshSuggestedFields} from '@/lib/discovery/opportunities';
 function conn(){if(!db)throw new Error('Database is not configured');return db;}
 export async function enqueueSearch(orgId:string,config:SearchJobConfig):Promise<{jobId:string}>{
  return conn().transaction(async tx=>{
@@ -60,21 +61,34 @@ export async function completeSearchUnit(unitId:string,workerId:string,items:{ca
   await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${job.orgId}))`);
   const existing=await tx.select().from(prospects).where(eq(prospects.orgId,job.orgId));
   const identities=existing.map(p=>({id:p.id,businessName:p.name,city:p.city??'',website:p.website,phone:p.phone,placeId:p.googlePlaceId}) as Candidate);
-  let added=0,reviewed=0;
-  for(const {candidate:c,audit} of items){
+  let added=0,reviewed=0,filtered=0,unverified=0;
+  for(const {candidate:c,audit} of prioritizeSearchItems(items)){
    if(job.addedCount+job.reviewCount+added+reviewed>=job.config.maxCandidates)break;
    const url=c.evidence[0]?.url;if(!url)continue;
    const [record]=await tx.insert(candidates).values({orgId:job.orgId,jobId:job.id,sourceUrl:url,candidate:c,state:c.reviewRequired?'review':'accepted'}).onConflictDoNothing().returning();if(!record)continue;
    if(c.providerStatus==='homeowner_request'){await tx.update(candidates).set({state:'rejected'}).where(eq(candidates.id,record.id));continue;}
    if(c.reviewRequired||!c.businessName){reviewed++;continue;}
-   const issues=audit?.findings.filter(f=>f.code!=='canonical_review').map(f=>f.title)??[];
-   const quality=audit?.state==='missing'?'No Website':audit?.state==='inspected'?(issues.length>=5?'Terrible':issues.length>=3?'Outdated':issues.length>=2?'Decent':'Good'):null;
+   const opportunity=assessOpportunity(audit,{website:c.website,googlePlaceId:c.placeId});
+   let id=matchCandidate(c,identities);const existed=Boolean(id);
+   // Refresh existing records even when today's healthy result is filtered out.
+   if(id&&audit){
+    const [owned]=await tx.select().from(prospects).where(and(eq(prospects.id,id),eq(prospects.orgId,job.orgId))).for('update');
+    if(owned&&auditMatchesWebsite(audit,owned.website)){
+     const [previous]=await tx.select({audit:prospectResearch.audit}).from(prospectResearch).where(and(eq(prospectResearch.orgId,job.orgId),eq(prospectResearch.prospectId,id))).for('update');
+     const previousOpportunity=previous?.audit&&auditMatchesWebsite(previous.audit,owned.website)?assessOpportunity(previous.audit,{website:owned.website,googlePlaceId:owned.googlePlaceId}):null;
+     const merged=mergeWebsiteResearch(audit,previous?.audit??null);
+     await tx.insert(prospectResearch).values({orgId:job.orgId,prospectId:id,audit:merged}).onConflictDoUpdate({target:[prospectResearch.orgId,prospectResearch.prospectId],set:{audit:merged,checkedAt:new Date()}});
+     await tx.update(prospects).set({researchState:audit.state,quality:opportunity.quality,qualityIssues:opportunity.reasons,...refreshSuggestedFields(owned,previousOpportunity,opportunity),updatedAt:new Date()}).where(and(eq(prospects.id,id),eq(prospects.orgId,job.orgId)));
+    }
+   }
+   if(job.config.opportunityFocus&&!matchesOpportunity(opportunity,job.config.opportunityFocus)){filtered++;if(opportunity.kind==='review')unverified++;await tx.update(candidates).set({state:'filtered'}).where(eq(candidates.id,record.id));continue;}
+   const issues=opportunity.reasons;const quality=opportunity.quality;
    if(quality&&job.config.qualityFilter&&!job.config.qualityFilter.includes(quality)){await tx.update(candidates).set({state:'filtered'}).where(eq(candidates.id,record.id));continue;}
-   let id=matchCandidate(c,identities);
-   if(!id){const [created]=await tx.insert(prospects).values({orgId:job.orgId,name:c.businessName,city:c.city,industry:c.industry,website:c.website,phone:c.phone,email:c.email,googlePlaceId:c.placeId,rating:c.rating,reviewCount:c.reviewCount,address:c.address,researchState:audit?.state??'unchecked',quality,qualityIssues:issues,source:c.evidence[0].source==='google'?'Google Maps Bot':c.evidence[0].source==='facebook'?'Public Facebook':'Craigslist'}).returning();id=created.id;identities.push({...c,id});added++;}
+   if(!id){const [created]=await tx.insert(prospects).values({orgId:job.orgId,name:c.businessName,city:c.city,industry:c.industry,website:c.website,phone:c.phone,email:c.email,googlePlaceId:c.placeId,rating:c.rating,reviewCount:c.reviewCount,address:c.address,researchState:audit?.state??'unchecked',quality,qualityIssues:issues,offerType:opportunity.offerType,nextAction:opportunity.nextAction,source:c.evidence[0].source==='google'?'Google Maps Bot':c.evidence[0].source==='facebook'?'Public Facebook':'Craigslist'}).returning();id=created.id;identities.push({...c,id});added++;}
    for(const e of c.evidence)await tx.insert(prospectEvidence).values({orgId:job.orgId,prospectId:id,sourceUrl:e.url,evidence:e}).onConflictDoNothing();
-   if(audit&&auditMatchesWebsite(audit,existing.some(p=>p.id===id)?existing.find(p=>p.id===id)!.website:c.website))await tx.insert(prospectResearch).values({orgId:job.orgId,prospectId:id,audit}).onConflictDoNothing();
+   if(!existed&&audit)await tx.insert(prospectResearch).values({orgId:job.orgId,prospectId:id,audit}).onConflictDoNothing();
   }
+  if(filtered)warnings=[...warnings,`${filtered} businesses did not match the selected opportunity focus; ${unverified} had unverified website checks.`];
   await tx.update(units).set({state:error?'failed':'complete',error:error??null,leaseUntil:null}).where(eq(units.id,unitId));
   const children=await tx.select({state:units.state}).from(units).where(eq(units.jobId,job.id));
   const count=job.addedCount+job.reviewCount+added+reviewed;

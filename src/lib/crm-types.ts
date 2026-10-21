@@ -31,6 +31,7 @@ export type Candidate = {
 };
 export type SearchJobConfig = {
   cities: string[]; industries: string[]; sources: DiscoverySource[];
+  opportunityFocus?: import('./discovery/opportunities').OpportunityFocus;
   qualityFilter: string[] | null; maxResultsPerQuery: number; maxCandidates: number; maxUnits: number;
 };
 export type JobState = "queued" | "running" | "partial" | "complete" | "failed" | "cancelled";

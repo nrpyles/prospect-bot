@@ -1,9 +1,9 @@
 import type {Candidate} from '../crm-types.ts';
 export function standaloneWebsite(value:string|null|undefined):string|null{
- if(!value)return null;
- try{const u=new URL(/^https?:\/\//i.test(value)?value:`https://${value}`);if(!['https:','http:'].includes(u.protocol)||u.username||u.password)return null;
+ const clean=value?.replace(/^[\s\u200B\uFEFF]+|[\s\u200B\uFEFF]+$/g,'');if(!clean)return null;
+ try{if(/^[a-z][a-z0-9+.-]*:/i.test(clean)&&!/^https?:\/\//i.test(clean))return null;const u=new URL(/^https?:\/\//i.test(clean)?clean:`https://${clean}`);if(!['https:','http:'].includes(u.protocol)||u.username||u.password)return null;
  const h=u.hostname.toLowerCase().replace(/^www\./,'');
- if(['facebook.com','instagram.com','craigslist.org','yelp.com','google.com','maps.google.com'].some(d=>h===d||h.endsWith('.'+d)))return null;
+ if(h!=='sites.google.com'&&['facebook.com','instagram.com','craigslist.org','yelp.com','google.com','maps.app.goo.gl','g.page','nextdoor.com','thumbtack.com','angi.com','homeadvisor.com','bbb.org','linkedin.com','tiktok.com','linktr.ee'].some(d=>h===d||h.endsWith('.'+d)))return null;
  u.hash='';return u.href;
  }catch{return null;}
 }

@@ -5,6 +5,9 @@ test('search budgets reject oversized combinations before dispatch',()=>{
  assert.throws(()=>m.validateSearchConfig({cities:Array(20).fill('Dallas'),industries:Array(20).fill('Roofing'),sources:['google','facebook'],maxUnits:30}),/budget/);
  const c=m.validateSearchConfig({cities:[' Dallas '],industries:['Roofing'],sources:['google']});
  assert.equal(c.cities[0],'Dallas');assert.equal(c.maxCandidates,50);
+ assert.equal(c.opportunityFocus,'website_and_seo');
+ assert.equal(m.validateSearchConfig({cities:['Dallas'],industries:['Roofing'],sources:['google'],opportunityFocus:'no_website'}).opportunityFocus,'no_website');
+ assert.throws(()=>m.validateSearchConfig({cities:['Dallas'],industries:['Roofing'],sources:['google'],opportunityFocus:'made_up'}),/opportunity|focus/i);
  assert.throws(()=>m.validateSearchConfig({cities:['Dallas'],industries:['Roofing'],sources:['private_facebook']}),/source/);
 });
 test('partial failures cannot look complete and cancellation stays cancelled',()=>{
