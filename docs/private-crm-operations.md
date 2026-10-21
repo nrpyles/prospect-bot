@@ -1,0 +1,67 @@
+# Private CRM operations
+
+## Deployment preparation
+
+Use the existing application configuration and a separate review branch. Do not replace an existing production deployment until the production build, migration rehearsal, private login, and browser checks pass.
+
+On Vercel with Fluid compute, the Searches page processes one saved search batch per authenticated POST while the page is open. The route allows 300 seconds, bounds search work to 240 seconds and each website inspection to 8 seconds. Closing the page stops future batches; an in-flight batch can still finish and save. Reopening Searches resumes unfinished jobs. A processing request error stops automatic retries and shows Resume search. Search services still need their configured credentials and may incur provider charges.
+
+A separate persistent worker remains an optional alternative: run `pnpm worker` with the same database and provider configuration. It is not a public HTTP service. Web command outside Vercel: `pnpm start` after `pnpm build`. `/api/health` does not claim provider or database readiness.
+
+## Owner access
+
+The explicitly requested owner email is nrpyles@gmail.com, pinned in src/lib/private-access.ts. The authenticated Clerk account must contain that verified email; a verified secondary email is accepted too. Unverified and unrelated addresses are denied before workspace creation. Legacy PRIVATE_OWNER_CLERK_ID and PRIVATE_OWNER_EMAIL environment variables no longer choose the owner. Keep sign ups disabled in the Clerk application and use the existing owner account. If that email has no Clerk account yet, the identity provider must provision or link it before sign in can succeed.
+
+Set NEXT_PUBLIC_APP_URL to the actual web URL. Use the matching personal Gmail OAuth redirect URL in Google. See [Gmail setup](gmail-setup.md) for the exact current deployment values. No new domain purchase is necessary to test an existing deployment URL.
+
+## Preserve data
+
+Make a database backup using the provider’s backup tool or pg_dump. Restore it into a separate test database and use that database to rehearse migrations and integration checks.
+
+Run `pnpm exec tsx scripts/migrate.ts` to apply the recorded migrations. The new migration only adds tables and columns and fills new research states as unchecked. It does not erase or reclassify existing prospects. Existing pipeline enums are preserved. Original lending and contractor records remain stored.
+
+The original project had standalone scripts for workspace mode columns. The new migration accounts for those columns using IF NOT EXISTS. The next schema snapshot is recorded for future migration generation. Rehearse the migration before any production use.
+
+## Encryption and personal Gmail
+
+TOKEN_ENCRYPTION_KEY must remain stable. The earlier application derived its token key from TOKEN_ENCRYPTION_KEY, CLERK_SECRET_KEY, or ANTHROPIC_API_KEY, in that order. When introducing an explicit key, use the same secret that was effective before; otherwise existing encrypted connections will need reconnection. Never paste these values into chat or commit them.
+
+Reconnect personal Gmail in Settings when tokens expire or the sender changes. The actual authenticated email is displayed before sending. Reconnecting or disconnecting invalidates prepared messages. The app doesn’t read your inbox; mark Replied, Not Interested, or Do Not Contact on the prospect. Those actions stop future due work and cancel prepared messages.
+
+If a send is shown as unknown or still sending, check the correct account’s Gmail Sent folder. Do not generate a replacement email merely to retry. A provider may have accepted the original even if local logging failed. An operator can reconcile send_intents by its provider message ID, then record the actual result. Do not clear an intent back to prepared without confirming the mail was not sent.
+
+## Search controls
+
+Google uses Places Text Search. The server may reuse the existing organization Google key. Facebook and Craigslist use public indexed search. Private groups, hidden Craigslist reply addresses, and complete platform coverage are not provided.
+
+Searches start only from an explicit user action. Defaults are 30 source/city/trade combinations, 50 saved or review candidates, and 10 results per query. Server limits are 100 combinations, 200 candidates, and 20 results per query. These are application volume limits, not a guaranteed monetary spending cap. Configure provider billing limits separately.
+
+On Vercel, keep Searches open to process queued jobs and inspect any Resume search error. For a separately hosted worker, a queued job without a heartbeat means the worker has not picked it up; check that process and its database connection. Running units renew a 60 second lease every 15 seconds. After a worker restart, expired leases can be reclaimed. Successful results survive source failures. Partial and failed results include notes. No mock leads are substituted.
+
+Review social listings before accepting them. Confirm the company name, contact information, website and date using the original source. A homeowner asking for a provider is not a business lead.
+
+## Website and SEO checks
+
+The app inspects static HTML and a small number of internal links. It records observations about metadata, headings, contact paths, viewport, canonical and robots directives, and structured data syntax. It doesn’t measure rankings, traffic, real indexing, rendered mobile usability, or page performance. Missing and inaccessible websites have different states. A good website can remain an SEO prospect.
+
+## Verification and rollback
+
+Use a disposable TEST_DATABASE_URL with permission to create and drop test schemas. Never use the production database. Integration tests create random test schemas and clean up their own resources. Run the unit and integration suites, type checking, lint, production build, and authenticated browser checks before release.
+
+For a release regression, stop the discovery worker, roll the application back to the prior known good commit, and retain the new additive data. Do not drop new tables as an automatic rollback. If necessary restore the predeployment backup into a separate database and review before changing the live connection.
+
+## Current verification limit
+
+Dependency installation was blocked in the build environment. Production compilation, database integration, browser rendering, live provider calls, and OAuth must still be verified with the configured environment. No paid service was activated and no prospect email was sent during development.
+
+## Browser verification
+
+Use a test deployment with the private owner configured. Export a Playwright owner session to a local file ending in .auth.json, which is ignored by git. Do not commit session cookies. Set CRM_E2E_BASE_URL and CRM_E2E_STORAGE_STATE to that deployment and session file. The browser harness uses Playwright from the runtime; if it is not installed in the project, point CRM_PLAYWRIGHT_MODULE to the runtime package module. Run pnpm test:e2e. It intercepts only browser read responses with explicit test fixtures and makes no provider or send requests.
+
+Run pnpm verify:crm for the release checklist. It exits unsuccessfully if required database or browser setup is missing, so skipped checks cannot be mistaken for a release pass. Browser fixture checks supplement real owner login, migration and provider checks; they do not prove those integrations.
+
+## Signed in but setup is blocked
+
+The owner gate and workspace storage are separate. A signed in owner can still encounter a database setup failure. The setup screen now shows a safe code only after the owner email is verified. database_missing means this deployment lacks DATABASE_URL; schema_missing means required tables or columns are absent; database_credentials, database_permissions and database_connection identify connection configuration failures. workspace_unknown requires checking the server logs. A separate sign in service message means Clerk could not load the account.
+
+The personal shortcut currently points to a Vercel branch preview, so existing database configuration must be available to Preview, not only Production. After changing environment variables, redeploy that branch. Use the existing Postgres database and preserve the token encryption key. Do not paste connection strings or credentials into chat. Rehearse recorded migrations on a backup before applying them to existing records. These diagnostic messages do not provision a database or claim migrations succeeded.

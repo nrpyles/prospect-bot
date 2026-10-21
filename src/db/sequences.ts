@@ -1,7 +1,9 @@
+import {advanceSequenceInTransaction} from './sequence-actions';
+import {canContactProspect} from '@/lib/crm-guards';
 /**
  * Sequence + enrollment queries scoped to an org.
  */
-import { and, eq, asc, isNotNull, lte, or, isNull, desc, inArray } from "drizzle-orm";
+import { and, eq, asc, isNotNull, lte, isNull, desc, inArray, ne } from "drizzle-orm";
 import { db } from "./index";
 import {
   sequences,
@@ -145,10 +147,10 @@ export async function enrollProspects(orgId: string, sequenceId: string, prospec
   if (owned.length === 0) throw new Error("Sequence not found");
 
   const ownedProspects = await conn
-    .select({ id: prospects.id })
+    .select({ id: prospects.id,status:prospects.status,outreachDisposition:prospects.outreachDisposition })
     .from(prospects)
-    .where(and(eq(prospects.orgId, orgId), inArray(prospects.id, prospectIds)));
-  const validIds = ownedProspects.map((p) => p.id);
+    .where(and(eq(prospects.orgId, orgId), eq(prospects.outreachDisposition, "active"),ne(prospects.status,"Not Interested"), inArray(prospects.id, prospectIds)));
+  const validIds = ownedProspects.filter(canContactProspect).map((p) => p.id);
   if (validIds.length === 0) return [];
 
   const now = new Date();
@@ -185,6 +187,9 @@ export async function listDueEnrollments(orgId: string) {
     .where(
       and(
         eq(sequences.orgId, orgId),
+        eq(sequences.isActive,true),
+        eq(prospects.outreachDisposition,"active"),
+        ne(prospects.status,"Not Interested"),
         eq(prospects.orgId, orgId),
         isNotNull(sequenceEnrollments.nextActionAt),
         lte(sequenceEnrollments.nextActionAt, now),
@@ -194,7 +199,7 @@ export async function listDueEnrollments(orgId: string) {
     )
     .orderBy(asc(sequenceEnrollments.nextActionAt));
 
-  return rows;
+  return rows.filter(row=>canContactProspect(row.prospect));
 }
 
 export async function listEnrollmentsForProspect(orgId: string, prospectId: string) {
@@ -216,91 +221,18 @@ export async function listEnrollmentsForProspect(orgId: string, prospectId: stri
 }
 
 /** Advance an enrollment to the next step. Computes nextActionAt from waitDays. */
-export async function advanceEnrollment(orgId: string, enrollmentId: string) {
-  const conn = ensureDb();
-
-  const [row] = await conn
-    .select({
-      enrollment: sequenceEnrollments,
-      sequence: sequences,
-    })
-    .from(sequenceEnrollments)
-    .innerJoin(sequences, eq(sequenceEnrollments.sequenceId, sequences.id))
-    .where(
-      and(
-        eq(sequenceEnrollments.id, enrollmentId),
-        eq(sequences.orgId, orgId),
-      ),
-    )
-    .limit(1);
-  if (!row) throw new Error("Enrollment not found");
-
-  const allSteps = await conn
-    .select()
-    .from(sequenceSteps)
-    .where(eq(sequenceSteps.sequenceId, row.enrollment.sequenceId))
-    .orderBy(asc(sequenceSteps.position));
-
-  let nextPosition = row.enrollment.currentStepPosition + 1;
-  let nextActionAt: Date | null = null;
-  let waitMs = 0;
-
-  // Skip past wait steps, accumulating their duration into the next-action delay.
-  while (nextPosition < allSteps.length && allSteps[nextPosition].kind === "wait") {
-    waitMs += (allSteps[nextPosition].waitDays ?? 0) * 24 * 60 * 60 * 1000;
-    nextPosition += 1;
-  }
-
-  const completed = nextPosition >= allSteps.length;
-  if (!completed) {
-    nextActionAt = new Date(Date.now() + waitMs);
-  }
-
-  await conn
-    .update(sequenceEnrollments)
-    .set({
-      currentStepPosition: completed ? row.enrollment.currentStepPosition : nextPosition,
-      nextActionAt,
-      completedAt: completed ? new Date() : null,
-    })
-    .where(eq(sequenceEnrollments.id, enrollmentId));
-
-  return { completed, nextStepPosition: nextPosition, nextActionAt };
+export async function advanceEnrollment(orgId: string, enrollmentId: string, expectedPosition: number) {
+  return ensureDb().transaction(tx=>advanceSequenceInTransaction(tx,orgId,enrollmentId,expectedPosition));
 }
 
-export async function pauseEnrollment(orgId: string, enrollmentId: string) {
-  const conn = ensureDb();
-  await conn
-    .update(sequenceEnrollments)
-    .set({ pausedAt: new Date(), nextActionAt: null })
-    .where(eq(sequenceEnrollments.id, enrollmentId));
-  // ownership not enforced here — fine since enrollmentId is uuid + we'd reject in middleware on access
-  void orgId;
+export async function pauseEnrollment(orgId:string,enrollmentId:string){
+ const conn=ensureDb();const owned=conn.select({id:sequences.id}).from(sequences).where(eq(sequences.orgId,orgId));
+ await conn.update(sequenceEnrollments).set({pausedAt:new Date(),nextActionAt:null}).where(and(eq(sequenceEnrollments.id,enrollmentId),inArray(sequenceEnrollments.sequenceId,owned),isNull(sequenceEnrollments.completedAt)));
 }
-
-export async function removeEnrollment(orgId: string, enrollmentId: string) {
-  const conn = ensureDb();
-  await conn.delete(sequenceEnrollments).where(eq(sequenceEnrollments.id, enrollmentId));
-  void orgId;
+export async function removeEnrollment(orgId:string,enrollmentId:string){
+ const conn=ensureDb();const owned=conn.select({id:sequences.id}).from(sequences).where(eq(sequences.orgId,orgId));
+ await conn.delete(sequenceEnrollments).where(and(eq(sequenceEnrollments.id,enrollmentId),inArray(sequenceEnrollments.sequenceId,owned)));
 }
 
 /** Aggregate counts of due actions for the dashboard's Today's Playbook. */
-export async function dueActionsSummary(orgId: string) {
-  const conn = ensureDb();
-  const due = await conn
-    .select({ id: sequenceEnrollments.id })
-    .from(sequenceEnrollments)
-    .innerJoin(sequences, eq(sequenceEnrollments.sequenceId, sequences.id))
-    .where(
-      and(
-        eq(sequences.orgId, orgId),
-        isNotNull(sequenceEnrollments.nextActionAt),
-        lte(sequenceEnrollments.nextActionAt, new Date()),
-        isNull(sequenceEnrollments.completedAt),
-        isNull(sequenceEnrollments.pausedAt),
-      ),
-    );
-  // suppress unused warning for `or`
-  void or;
-  return { dueCount: due.length };
-}
+export async function dueActionsSummary(orgId:string){return {dueCount:(await listDueEnrollments(orgId)).length};}

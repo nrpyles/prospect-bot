@@ -1,0 +1,95 @@
+import {buildAgencyDraftContext,validatePersonalizedDraft} from './agency-draft.ts';
+import {writingProvider} from './writing-config.ts';
+
+type Input=Parameters<typeof buildAgencyDraftContext>[0];
+type Options={apiKey?:string;provider?:'gemini'|'openai';request?:typeof fetch};
+const MODEL='gpt-6.1-sol';
+const properties=Object.fromEntries(['subject','body','reasoning','sourceUrl','sourceQuote'].map(key=>[key,{type:'string'}]));
+
+async function responseJson(response:Response,label='OpenAI'):Promise<unknown>{
+ if(!response.body)throw new Error(`${label} returned no response data`);
+ const reader=response.body.getReader();const chunks:Uint8Array[]=[];let size=0;
+ try{while(true){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>2097152)throw new Error(`${label} response exceeded the transport limit`);chunks.push(value);}}
+ finally{await reader.cancel().catch(()=>{});}
+ try{return JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{throw new Error(`${label} returned invalid response data`);}
+}
+const record=(value:unknown):Record<string,unknown>|null=>value!==null&&typeof value==='object'&&!Array.isArray(value)?value as Record<string,unknown>:null;
+
+export async function draftPersonalizedEmail(input:Input,options:Options={}){
+ const provider=options.provider??(options.apiKey!==undefined?'openai':writingProvider()??'gemini');
+ const gemini=provider==='gemini';const label=gemini?'Gemini':'OpenAI';
+ const apiKey=(options.apiKey??(gemini?process.env.GEMINI_API_KEY:process.env.OPENAI_API_KEY))?.trim();
+ if(!apiKey)throw new Error(`${label} writing is not configured. Add ${gemini?'GEMINI_API_KEY':'OPENAI_API_KEY'} in your deployment settings.`);
+ const context=buildAgencyDraftContext(input);
+ const schema={type:'object',properties,required:Object.keys(properties),additionalProperties:false};
+ const response=await (options.request??fetch)(gemini?'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent':'https://api.openai.com/v1/responses',{
+  method:'POST',redirect:'error',signal:AbortSignal.timeout(90000),
+  headers:gemini?{'x-goog-api-key':apiKey,'Content-Type':'application/json'}:{Authorization:`Bearer ${apiKey}`,'Content-Type':'application/json'},
+  body:JSON.stringify(gemini?{
+   systemInstruction:{parts:[{text:context.system}]},contents:[{role:'user',parts:[{text:context.user}]}],
+   generationConfig:{maxOutputTokens:8192,responseFormat:{text:{mimeType:'APPLICATION_JSON',schema}}},
+  }:{model:MODEL,instructions:context.system,input:context.user,store:false,reasoning:{effort:'medium'},max_output_tokens:8192,text:{format:{type:'json_schema',name:'outreach_email',strict:true,schema}}})
+ }).catch(()=>{throw new Error(`${label} writing could not connect or timed out. Try again.`);});
+ if(!response.ok){
+  if(gemini){
+   await response.body?.cancel();
+   if(response.status===402)throw new Error('Gemini API credits are exhausted. Check this project’s billing balance in Google AI Studio.');
+   if(response.status===429)throw new Error('Gemini reached an API quota or rate limit. Wait before trying one draft again, then check this project’s limits in Google AI Studio. Your Gemini app subscription does not guarantee API quota.');
+   if(response.status===401||response.status===403)throw new Error('Gemini rejected the API key or project permissions. Check GEMINI_API_KEY and its project access in Google AI Studio.');
+   if(response.status===404)throw new Error('The Gemini writing model is unavailable to this API project. Check model access in Google AI Studio.');
+   throw new Error(`Gemini writing returned HTTP ${response.status}. Check the Gemini API service and project settings.`);
+  }
+  if(response.status===429){
+   const payload=record(await responseJson(response).catch(()=>null));const error=record(payload?.error);
+   const code=typeof error?.code==='string'?error.code:typeof error?.type==='string'?error.type:'';
+   const billingErrors:Record<string,string>={
+    credit_balance_exhausted:'OpenAI API credits are exhausted (credit_balance_exhausted). Check your API billing balance and add credits to resume email writing.',
+    organization_spend_limit_exceeded:'Your OpenAI organization spending limit has been reached (organization_spend_limit_exceeded). Review the limit in API billing settings.',
+    project_spend_limit_exceeded:'Your OpenAI project spending limit has been reached (project_spend_limit_exceeded). Review the limit in OpenAI project settings.',
+    organization_usage_limit_exceeded:'Your OpenAI organization has reached its approved monthly usage limit (organization_usage_limit_exceeded). Request a higher approved usage limit in OpenAI Limits. Adding credits alone will not remove this cap.',
+    insufficient_quota:'OpenAI API credits or a spending limit are blocking email writing (insufficient_quota). Check your API billing balance and project limits. Waiting and retrying alone will not fix this.',
+    billing_hard_limit_reached:'OpenAI has reached a billing limit (billing_hard_limit_reached). Check your API billing balance and spending limits. Waiting and retrying alone will not fix this.',
+   };
+   if(Object.hasOwn(billingErrors,code))throw new Error(billingErrors[code]);
+   if(code==='rate_limit_exceeded'||code==='slow_down'||error?.type==='rate_limit_error'){
+    if(typeof error?.message==='string'&&/request(?:ed)? (?:is )?too large/i.test(error.message))throw new Error('The website research request is too large for this OpenAI project’s token rate limit. Choose a smaller research page budget and rerun Research website, or request a higher token limit in OpenAI Limits.');
+    const retryAfter=response.headers.get('retry-after');
+    const seconds=retryAfter&&/^\d+(?:\.\d+)?$/.test(retryAfter)?Math.ceil(Number(retryAfter)):0;
+    const wait=seconds>0&&seconds<=86400?`Wait at least ${seconds} seconds`:'Wait a minute';
+    const label=code==='slow_down'?'slow_down':'rate_limit_exceeded';
+    throw new Error(`OpenAI has a temporary request or token rate limit (${label}). ${wait}, then try one draft. Repeated failures need a check of your OpenAI project limits.`);
+   }
+   if(error?.type==='insufficient_quota')throw new Error(billingErrors.insufficient_quota);
+   throw new Error('OpenAI returned an unclassified usage limit (429). Check your API billing balance and project limits.');
+  }
+  await response.body?.cancel();
+  if(response.status===401||response.status===403)throw new Error('OpenAI rejected the connection. Check the server API key and project permissions.');
+  if(response.status===404)throw new Error('The OpenAI writing model is unavailable to this API project. Check model access.');
+  throw new Error(`OpenAI writing returned HTTP ${response.status}. Try again.`);
+ }
+ const result=record(await responseJson(response,label));
+ const texts:string[]=[];
+ if(gemini){
+  if(record(result?.promptFeedback)?.blockReason)throw new Error('Gemini blocked this draft. Review the business research before trying again.');
+  const candidate=record(Array.isArray(result?.candidates)?result.candidates[0]:null);
+  if(candidate?.finishReason!=='STOP')throw new Error('Gemini did not finish the draft. Its output limit or a content restriction may have been reached.');
+  const content=record(candidate.content);
+  for(const item of Array.isArray(content?.parts)?content.parts:[]){const part=record(item);if(part?.thought!==true&&typeof part?.text==='string')texts.push(part.text);}
+ }else{
+ if(!result||result.status!=='completed')throw new Error('OpenAI did not finish the draft. Its provider output limit or another interruption may have been reached. Try again.');
+ for(const item of Array.isArray(result.output)?result.output:[]){
+  const message=record(item);if(message?.type!=='message')continue;
+  for(const item of Array.isArray(message.content)?message.content:[]){
+   const block=record(item);if(block?.type==='refusal')throw new Error('OpenAI declined this draft. Review the business research before trying again.');
+   if(block?.type==='output_text'&&typeof block.text==='string')texts.push(block.text);
+  }
+ }
+ }
+ let data:Record<string,unknown>|null;
+ try{data=record(JSON.parse(texts.join('')));}catch{throw new Error(`${label} did not return a valid email. Generate another version.`);}
+ if(!data||typeof data.subject!=='string'||typeof data.body!=='string'||!data.subject.trim()||!data.body.trim())throw new Error(`${label} returned an empty or invalid email`);
+ const draft={subject:data.subject.trim(),body:data.body.trim(),reasoning:typeof data.reasoning==='string'?data.reasoning:'',sourceUrl:typeof data.sourceUrl==='string'&&data.sourceUrl?data.sourceUrl:undefined,sourceQuote:typeof data.sourceQuote==='string'&&data.sourceQuote?data.sourceQuote:undefined};
+ if(input.research?.pages.length)validatePersonalizedDraft(draft,input.research,input.research.recentDrafts??[]);
+ if(/[—–]|\s-\s/.test(draft.body+' '+draft.subject))throw new Error('The AI draft needs simpler punctuation. Generate another version.');
+ return draft;
+}

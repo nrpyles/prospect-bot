@@ -1,0 +1,28 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {isolatedDatabase,owner} from '../helpers/database.mjs';
+test('database claims enforce ownership, live leases, cancellation and recovery',{skip:!process.env.TEST_DATABASE_URL&&'TEST_DATABASE_URL is not configured; database validation was not run'},async()=>isolatedDatabase(async(sql)=>{
+ const {enqueueSearch,claimSearchUnit,cancelSearch,getSearchJob}=await import('../../src/db/discovery.ts');const {orgId}=await owner(sql);const config={cities:['Dallas'],industries:['Roofing'],sources:['google'],qualityFilter:null,maxResultsPerQuery:10,maxCandidates:50,maxUnits:30};
+ const {jobId}=await enqueueSearch(orgId,config);const results=await Promise.all([claimSearchUnit('worker-a'),claimSearchUnit('worker-b')]);assert.equal(results.filter(Boolean).length,1);const active=results.find(Boolean);
+ await sql`UPDATE discovery_units SET lease_until=now()-interval '1 second' WHERE id=${active.unit.id}`;
+ const resumed=await claimSearchUnit('worker-c');assert.equal(resumed.unit.id,active.unit.id);
+ await assert.rejects(cancelSearch('00000000-0000-0000-0000-000000000000',jobId));
+ await cancelSearch(orgId,jobId);assert.equal((await getSearchJob(orgId,jobId)).state,'cancelled');assert.equal(await claimSearchUnit('worker-d'),null);
+ const first=await owner(sql),second=await owner(sql);
+ const scopedConfig={cities:['Dallas','Plano'],industries:['Roofing'],sources:['google'],qualityFilter:null,maxResultsPerQuery:10,maxCandidates:50,maxUnits:30};
+ const other=await enqueueSearch(second.orgId,scopedConfig);
+ const own=await enqueueSearch(first.orgId,scopedConfig);
+ assert.equal(await claimSearchUnit('wrong-owner',{orgId:first.orgId,jobId:other.jobId}),null);
+ const simultaneous=await Promise.all([claimSearchUnit('web-one',{orgId:first.orgId,jobId:own.jobId}),claimSearchUnit('web-other-tab',{orgId:first.orgId,jobId:own.jobId})]);
+ assert.equal(simultaneous.filter(Boolean).length,1);
+ const claim=simultaneous.find(Boolean);
+ assert.equal(claim.unit.job_id,own.jobId);
+ assert.equal(await claimSearchUnit('web-two',{orgId:first.orgId,jobId:own.jobId}),null);
+ const [untouched]=await sql`SELECT count(*)::int AS n FROM discovery_units WHERE job_id=${other.jobId} AND state='queued'`;
+ assert.equal(untouched.n,2);
+ const cli=await claimSearchUnit('mixed-cli');
+ assert.equal(cli.unit.job_id,other.jobId);
+ assert.equal(await claimSearchUnit('mixed-cli-two'),null);
+ await sql`UPDATE discovery_units SET state='complete' WHERE job_id=${own.jobId} AND id<>${claim.unit.id}`;
+ await sql`UPDATE discovery_units SET lease_until=now()-interval '1 second' WHERE id=${claim.unit.id}`;
+ const recovered=await claimSearchUnit('web-recovery',{orgId:first.orgId,jobId:own.jobId});
+ assert.equal(recovered.unit.id,claim.unit.id);
+}));

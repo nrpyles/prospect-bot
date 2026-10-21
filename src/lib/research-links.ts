@@ -2,6 +2,7 @@
  * Build Google research URLs for a prospect so users can vet a lead
  * before reaching out (Maps card, GBP, website, plain Google search).
  */
+import {craigslistRegion} from "./seasonal-trades";
 import type { Prospect } from "./mock-prospects";
 
 export type ResearchLink = {
@@ -72,5 +73,8 @@ export function buildResearchLinks(prospect: Prospect, placeId?: string | null):
     external: true,
   });
 
+  const region=craigslistRegion(prospect.city);
+  if(region)links.push({key:"craigslist",label:"Craigslist",href:`https://${region}.craigslist.org/search/bbb?query=${encodeURIComponent(prospect.industry)}`,external:true});
   return links;
 }
+

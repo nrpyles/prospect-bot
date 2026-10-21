@@ -206,6 +206,13 @@ export const prospects = pgTable(
     email: text("email"),
     website: text("website"),
 
+    // Private CRM research (additive; legacy quality values remain intact)
+    researchState: text("research_state").notNull().default("unchecked"),
+    offerType: text("offer_type"),
+    nextAction: text("next_action"),
+    externalProjectUrl: text("external_project_url"),
+    outreachDisposition: text("outreach_disposition").notNull().default("active"),
+
     // Scoring
     quality: websiteQualityEnum("quality"),
     qualityIssues: jsonb("quality_issues").$type<string[]>().default(sql`'[]'::jsonb`),
@@ -436,3 +443,63 @@ export type Sequence = typeof sequences.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type Plan = typeof plans.$inferSelect;
 export type Subscription = typeof subscriptions.$inferSelect;
+
+
+// Private CRM extensions. Original tables and enums are preserved.
+export const prospectResearch = pgTable("prospect_research", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  orgId: uuid("org_id").notNull().references(() => organizations.id, {onDelete:"cascade"}),
+  prospectId: uuid("prospect_id").notNull().references(() => prospects.id, {onDelete:"cascade"}),
+  audit: jsonb("audit").notNull().$type<import("@/lib/crm-types").AuditResult>(),
+  checkedAt: timestamp("checked_at").notNull().defaultNow(),
+}, t => [uniqueIndex("research_prospect_unique").on(t.orgId,t.prospectId)]);
+export const prospectEvidence = pgTable("prospect_evidence", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  orgId: uuid("org_id").notNull().references(() => organizations.id, {onDelete:"cascade"}),
+  prospectId: uuid("prospect_id").notNull().references(() => prospects.id, {onDelete:"cascade"}),
+  sourceUrl: text("source_url").notNull(),
+  evidence: jsonb("evidence").notNull().$type<import("@/lib/crm-types").Evidence>(),
+}, t => [uniqueIndex("evidence_prospect_url_unique").on(t.orgId,t.prospectId,t.sourceUrl)]);
+export const discoveryJobs = pgTable("discovery_jobs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  orgId: uuid("org_id").notNull().references(() => organizations.id, {onDelete:"cascade"}),
+  config: jsonb("config").notNull().$type<import("@/lib/crm-types").SearchJobConfig>(),
+  state: text("state").notNull().default("queued"),
+  foundCount: integer("found_count").notNull().default(0),
+  addedCount: integer("added_count").notNull().default(0),
+  reviewCount: integer("review_count").notNull().default(0),
+  warnings: jsonb("warnings").notNull().$type<string[]>().default(sql`'[]'::jsonb`),
+  heartbeatAt: timestamp("heartbeat_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, t => [index("discovery_org_idx").on(t.orgId)]);
+export const discoveryUnits = pgTable("discovery_units", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  jobId: uuid("job_id").notNull().references(() => discoveryJobs.id, {onDelete:"cascade"}),
+  source: text("source").notNull(),city: text("city").notNull(),industry:text("industry").notNull(),
+  state:text("state").notNull().default("queued"),
+  workerId:text("worker_id"),leaseUntil:timestamp("lease_until"),error:text("error"),
+}, t => [index("discovery_unit_state_idx").on(t.state,t.leaseUntil)]);
+export const discoveryCandidates = pgTable("discovery_candidates", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  orgId: uuid("org_id").notNull().references(() => organizations.id, {onDelete:"cascade"}),
+  jobId: uuid("job_id").notNull().references(() => discoveryJobs.id, {onDelete:"cascade"}),
+  sourceUrl:text("source_url").notNull(),
+  candidate:jsonb("candidate").notNull().$type<import("@/lib/crm-types").Candidate>(),
+  state:text("state").notNull().default("review"),
+  createdAt:timestamp("created_at").notNull().defaultNow(),
+}, t => [uniqueIndex("candidate_job_url_unique").on(t.jobId,t.sourceUrl)]);
+export const sendIntents = pgTable("send_intents", {
+  id:uuid("id").defaultRandom().primaryKey(),
+  orgId:uuid("org_id").notNull().references(() => organizations.id,{onDelete:"cascade"}),
+  userId:uuid("user_id").notNull().references(() => users.id,{onDelete:"cascade"}),
+  prospectId:uuid("prospect_id").notNull().references(() => prospects.id,{onDelete:"cascade"}),
+  clientKey:uuid("client_key").notNull(),
+  expectedSender:text("expected_sender").notNull(),recipient:text("recipient").notNull(),
+  subject:text("subject").notNull(),body:text("body").notNull(),
+  state:text("state").notNull().default("prepared"),
+  providerMessageId:text("provider_message_id"),threadId:text("thread_id"),error:text("error"),
+  enrollmentId:uuid("enrollment_id").references(()=>sequenceEnrollments.id,{onDelete:"set null"}),
+  expectedStepPosition:integer("expected_step_position"),
+  sequenceStepId:uuid("sequence_step_id").references(()=>sequenceSteps.id,{onDelete:"set null"}),
+  createdAt:timestamp("created_at").notNull().defaultNow(),updatedAt:timestamp("updated_at").notNull().defaultNow(),
+}, t => [index("send_intent_org_idx").on(t.orgId,t.prospectId),uniqueIndex("send_intent_key_unique").on(t.orgId,t.clientKey),uniqueIndex("send_intent_enrollment_step_unique").on(t.orgId,t.enrollmentId,t.expectedStepPosition).where(sql`${t.state} IN ('prepared','sending','unknown','sent')`)]);

@@ -162,9 +162,9 @@ function buildRawMessage(opts: {
     `Subject: ${encodeHeaderWord(opts.subject)}`,
     "MIME-Version: 1.0",
     'Content-Type: text/plain; charset="UTF-8"',
-    "Content-Transfer-Encoding: 7bit",
+    "Content-Transfer-Encoding: base64",
     "",
-    opts.body,
+    Buffer.from(opts.body,"utf8").toString("base64"),
   ];
   const raw = lines.join("\r\n");
   return Buffer.from(raw, "utf8").toString("base64url");
@@ -190,10 +190,12 @@ export async function sendGmailMessage(opts: {
   subject: string;
   body: string;
 }): Promise<SendResult> {
+  if(/[\r\n]/.test(opts.to+opts.from+opts.subject+(opts.fromName??"")))throw new Error("Invalid email header");
   const raw = buildRawMessage(opts);
 
   const resp = await fetch(GMAIL_SEND_URL, {
     method: "POST",
+    signal: AbortSignal.timeout(20000),
     headers: {
       Authorization: `Bearer ${opts.accessToken}`,
       "Content-Type": "application/json",
@@ -209,3 +211,4 @@ export async function sendGmailMessage(opts: {
   const data = (await resp.json()) as { id: string; threadId: string };
   return { id: data.id, threadId: data.threadId };
 }
+

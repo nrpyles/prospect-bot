@@ -1,64 +1,11 @@
-import { eq } from "drizzle-orm";
-import { currentUser } from "@clerk/nextjs/server";
-import { getUserContext } from "@/lib/server-context";
-import { db } from "@/db";
-import { organizations } from "@/db/schema";
-import { SettingsClient } from "./SettingsClient";
-import { GmailConnect } from "./GmailConnect";
-
-export default async function SettingsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ gmail?: string }>;
-}) {
-  const { gmail } = await searchParams;
-  const ctx = await getUserContext();
-  if (!ctx || !db) {
-    return (
-      <div className="mx-auto max-w-3xl px-6 py-16">
-        <h1 className="text-2xl font-bold">Session expired</h1>
-      </div>
-    );
-  }
-
-  const [org] = await db
-    .select()
-    .from(organizations)
-    .where(eq(organizations.id, ctx.orgId))
-    .limit(1);
-  const user = await currentUser();
-  const email = user?.primaryEmailAddress?.emailAddress ?? user?.emailAddresses[0]?.emailAddress ?? "—";
-
-  return (
-    <div className="mx-auto max-w-3xl px-4 py-10 lg:px-8 lg:py-14">
-      <div className="mb-8">
-        <p className="eyebrow mb-2">SETTINGS</p>
-        <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">Configure your workspace.</h1>
-        <p className="mt-3 text-sm text-[color:var(--color-foreground-dim)]">
-          API keys, default search criteria, and your account. Everything is scoped to your workspace.
-        </p>
-      </div>
-
-      {/* Gmail connection — server-driven status banner from ?gmail= param */}
-      <section className="mb-8">
-        <h2 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[color:var(--color-foreground-dim)]">
-          <span className="text-[color:var(--color-accent)]">✉</span>
-          Send from Gmail
-        </h2>
-        <GmailConnect statusParam={gmail} />
-      </section>
-
-      <SettingsClient
-        orgName={org?.name ?? "My Workspace"}
-        workspaceMode={(org?.workspaceMode ?? "agency") as "agency" | "lending" | "contractor"}
-        senderName={org?.senderName ?? ""}
-        senderCompany={org?.senderCompany ?? ""}
-        googleMapsApiKey={org?.googleMapsApiKey ?? ""}
-        defaultCities={(org?.defaultCities as string[] | null) ?? []}
-        defaultIndustries={(org?.defaultIndustries as string[] | null) ?? []}
-        email={email}
-        hasAnthropicKey={Boolean(process.env.ANTHROPIC_API_KEY)}
-      />
-    </div>
-  );
+import {writingProvider} from '@/lib/outreach/writing-config';
+import {getUserContext} from "@/lib/server-context";
+import {GmailConnect} from "./GmailConnect";
+import {providerSettings} from "@/db/provider-settings";
+export const dynamic="force-dynamic";
+export default async function SettingsPage({searchParams}:{searchParams:Promise<{gmail?:string}>}){
+ const ctx=await getUserContext();if(!ctx)return null;const status=await searchParams;const config=await providerSettings(ctx.orgId);
+ const writer=writingProvider();
+ const rows=[{name:"Google business search",ready:Boolean(config.googleKey),description:"Business listings and service area businesses."},{name:"Facebook + Craigslist discovery",ready:Boolean(config.publicWebKey),description:"Public indexed listings through your configured search service."},{name:writer==="gemini"?"Gemini email writing":writer==="openai"?"OpenAI email writing":"AI email writing",ready:Boolean(writer),description:writer==="gemini"?"Personalized drafts through Gemini Flash. Your Google AI Studio project controls API quota and billing.":writer==="openai"?"Personalized drafts through the OpenAI API. Add GEMINI_API_KEY to switch to Gemini.":"Add GEMINI_API_KEY in deployment settings to enable personalized drafts."}];
+ return <><div className="crm-page-heading"><div><p className="crm-eyebrow">YOUR PRIVATE WORKSPACE</p><h1>Connections, kept simple.</h1><p>Your personal sender and research services.</p></div></div><section className="crm-card crm-settings-card"><h2>Personal email</h2><p className="crm-muted">Connect the personal Gmail account you want prospects to hear from. Every send shows the actual connected address. Replies are marked manually.</p><GmailConnect statusParam={status.gmail}/></section><section className="crm-card crm-settings-card"><h2>Research services</h2>{rows.map(r=><div className="crm-connection-row" key={r.name}><div><strong>{r.name}</strong><p>{r.description}</p></div><span className={r.ready?"crm-state crm-state-complete":"crm-state"}>{r.ready?"Configured":"Not configured"}</span></div>)}<p className="crm-muted">Provider credentials stay on the server. Use deployment environment settings to configure them. No credentials are shown here.</p></section>{writer!=="gemini"&&<section className="crm-card crm-settings-card"><h2>Set up Gemini writing</h2><p>Create a Gemini API key in Google AI Studio. Store it in Vercel as <code>GEMINI_API_KEY</code> for the Preview environment, then redeploy. Gemini takes priority when both provider keys are configured.</p><div className="crm-action-row"><a className="crm-button crm-button-secondary" href="https://aistudio.google.com/api-keys" target="_blank" rel="noreferrer">Open Gemini API keys</a><a className="crm-text-button" href="https://vercel.com/neal-pyles/prospect-bot/settings/environment-variables" target="_blank" rel="noreferrer">Open Vercel environment settings</a></div><p className="crm-muted">Check the project's API tier in AI Studio. A Gemini app subscription doesn't guarantee API allowance for this hosted CRM.</p></section>}<section className="crm-card crm-settings-card"><h2>AI data and usage</h2><p>AI drafts use business details and saved website excerpts. On Gemini's free API tier, Google may use prompts and responses to improve its products. Use public business information.</p><p className="crm-muted">Gemini API quota and any charges depend on your AI Studio project. This CRM doesn't enable paid billing or automatically retry failed drafts through another provider.</p></section><section className="crm-card crm-settings-card"><h2>Costs and control</h2><p>Searches only run when you start them. Each run has a candidate limit and a combination budget. AI drafting only runs when you select it.</p><p className="crm-muted">Hosting and provider usage may incur charges. No subscriptions, paid services, or automated outreach are activated by this interface.</p></section></>;
 }

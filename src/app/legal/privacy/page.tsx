@@ -55,18 +55,15 @@ export default function PrivacyPage() {
 
         <Section title="AI processing">
           <p>
-            When you click &quot;Draft AI message&quot;, the prospect&apos;s name, industry,
-            city, and website quality issues are sent to Anthropic (Claude) to generate
-            the email. Anthropic processes this data per their{" "}
-            <a
-              href="https://www.anthropic.com/legal/privacy"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[color:var(--color-accent)] underline"
-            >
-              privacy policy
-            </a>
-            . We do not retain prompts/completions beyond the immediate request.
+            When you request a personalized CRM email, business details and researched
+            website excerpts are sent to Google Gemini or OpenAI, depending on your configured provider, to generate the draft. On the Gemini free API tier, Google may use prompts and responses to improve its products. Saved research
+            and recent drafts are retained in your workspace to support review and
+            avoid repeated messages. Other writing features may use Anthropic.
+            These providers process data under their respective privacy policies:
+            {" "}<a href="https://openai.com/policies/privacy-policy/" target="_blank" rel="noopener noreferrer" className="text-[color:var(--color-accent)] underline">OpenAI</a>
+            {", "}<a href="https://ai.google.dev/gemini-api/terms" target="_blank" rel="noopener noreferrer" className="text-[color:var(--color-accent)] underline">Google Gemini</a>
+            {" and "}<a href="https://www.anthropic.com/legal/privacy" target="_blank" rel="noopener noreferrer" className="text-[color:var(--color-accent)] underline">Anthropic</a>.
+
           </p>
         </Section>
 
@@ -111,3 +108,4 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     </section>
   );
 }
+

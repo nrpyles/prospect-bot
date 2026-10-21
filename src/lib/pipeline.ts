@@ -168,6 +168,15 @@ export const INDUSTRIES = [
   "Wholesale",
   "Funeral Home",
 
+  "Christmas Light Installation",
+  "Holiday Decorating",
+  "Permanent Outdoor Lighting",
+  "Gutter Cleaning",
+  "Leaf Cleanup",
+  "Fall Yard Cleanup",
+  "Snow and Ice Removal",
+  "Pool Winterization",
+  "Chimney Cleaning",
   "Other",
 ] as const;
 export type Industry = (typeof INDUSTRIES)[number];
@@ -221,7 +230,7 @@ export const BLUE_COLLAR_ELIGIBLE_INDUSTRIES: ReadonlySet<Industry> = new Set([
 export const SOURCES = [
   "Google Maps Bot", "Google Maps", "Facebook Group", "Google Page 2",
   "Yelp", "Thumbtack", "Nextdoor", "Drive By", "County Filing",
-  "Referral", "Cold Search", "Other",
+  "Referral", "Cold Search", "Public Facebook", "Craigslist", "Public Google", "Other",
 ] as const;
 export type Source = (typeof SOURCES)[number];
 
@@ -300,3 +309,4 @@ export function getDefaultStatusForStage(stageKey: string): Status {
 export function getStageForStatus(status: Status): Stage | undefined {
   return STAGES.find((s) => s.statuses.includes(status));
 }
+

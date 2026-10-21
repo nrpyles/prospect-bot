@@ -132,7 +132,7 @@ export function DueActionsClient({ items }: { items: DueItem[] }) {
 
   function markSent(item: DueItem) {
     startTransition(async () => {
-      await advanceEnrollmentAction(item.enrollmentId);
+      await advanceEnrollmentAction(item.enrollmentId,item.stepPosition);
       setProcessed((s) => new Set(s).add(item.enrollmentId));
     });
   }
@@ -262,7 +262,9 @@ export function DueActionsClient({ items }: { items: DueItem[] }) {
                       subject={resolved.subject}
                       body={resolved.body}
                       size="sm"
-                      onSent={() => markSent(item)}
+                      enrollmentId={item.enrollmentId}
+                      expectedStepPosition={item.stepPosition}
+                      onSent={() => setProcessed(s=>new Set(s).add(item.enrollmentId))}
                     />
                   )}
                   <button
@@ -318,3 +320,4 @@ export function DueActionsClient({ items }: { items: DueItem[] }) {
     </div>
   );
 }
+

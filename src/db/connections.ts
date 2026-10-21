@@ -3,7 +3,7 @@
  */
 import { and, eq } from "drizzle-orm";
 import { db } from "./index";
-import { userConnections } from "./schema";
+import { userConnections,sendIntents } from "./schema";
 import { encryptSecret, decryptSecret } from "@/lib/crypto";
 import { refreshAccessToken, type GoogleTokens } from "@/lib/gmail";
 
@@ -31,24 +31,13 @@ export async function saveGmailConnection(
     emailAddress,
   };
 
-  // Upsert on (userId, provider, providerAccountId)
-  await conn
-    .insert(userConnections)
-    .values(values)
-    .onConflictDoUpdate({
-      target: [
-        userConnections.userId,
-        userConnections.provider,
-        userConnections.providerAccountId,
-      ],
-      set: {
-        accessToken: values.accessToken,
-        refreshToken: values.refreshToken,
-        expiresAt: values.expiresAt,
-        scope: values.scope,
-        emailAddress: values.emailAddress,
-      },
-    });
+  if(!emailAddress)throw new Error("Could not verify the connected Gmail address");
+  await conn.transaction(async tx=>{
+    const [old]=await tx.select().from(userConnections).where(and(eq(userConnections.userId,userId),eq(userConnections.provider,"gmail"),eq(userConnections.providerAccountId,providerAccountId))).limit(1);
+    await tx.delete(userConnections).where(and(eq(userConnections.userId,userId),eq(userConnections.provider,"gmail")));
+    await tx.insert(userConnections).values({...values,refreshToken:values.refreshToken??old?.refreshToken??null});
+    await tx.update(sendIntents).set({state:"cancelled",updatedAt:new Date()}).where(and(eq(sendIntents.userId,userId),eq(sendIntents.state,"prepared")));
+  });
 }
 
 export type GmailConnectionInfo = {
@@ -72,9 +61,10 @@ export async function getGmailConnectionInfo(userId: string): Promise<GmailConne
 
 export async function deleteGmailConnection(userId: string) {
   const conn = ensureDb();
-  await conn
-    .delete(userConnections)
-    .where(and(eq(userConnections.userId, userId), eq(userConnections.provider, "gmail")));
+  await conn.transaction(async tx=>{
+    await tx.delete(userConnections).where(and(eq(userConnections.userId,userId),eq(userConnections.provider,"gmail")));
+    await tx.update(sendIntents).set({state:"cancelled",updatedAt:new Date()}).where(and(eq(sendIntents.userId,userId),eq(sendIntents.state,"prepared")));
+  });
 }
 
 /**
@@ -124,3 +114,4 @@ export async function getValidGmailAccessToken(
 
   return { accessToken: refreshed.accessToken, emailAddress: row.emailAddress };
 }
+
