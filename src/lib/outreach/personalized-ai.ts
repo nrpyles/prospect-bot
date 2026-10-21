@@ -24,10 +24,32 @@ export async function draftPersonalizedEmail(input:Input,options:Options={}){
   body:JSON.stringify({model:MODEL,instructions:context.system,input:context.user,store:false,reasoning:{effort:'medium'},max_output_tokens:8192,text:{format:{type:'json_schema',name:'outreach_email',strict:true,schema:{type:'object',properties,required:Object.keys(properties),additionalProperties:false}}}})
  }).catch(()=>{throw new Error('OpenAI writing could not connect or timed out. Try again.');});
  if(!response.ok){
+  if(response.status===429){
+   const payload=record(await responseJson(response).catch(()=>null));const error=record(payload?.error);
+   const code=typeof error?.code==='string'?error.code:typeof error?.type==='string'?error.type:'';
+   const billingErrors:Record<string,string>={
+    credit_balance_exhausted:'OpenAI API credits are exhausted (credit_balance_exhausted). Check your API billing balance and add credits to resume email writing.',
+    organization_spend_limit_exceeded:'Your OpenAI organization spending limit has been reached (organization_spend_limit_exceeded). Review the limit in API billing settings.',
+    project_spend_limit_exceeded:'Your OpenAI project spending limit has been reached (project_spend_limit_exceeded). Review the limit in OpenAI project settings.',
+    organization_usage_limit_exceeded:'Your OpenAI organization has reached its approved monthly usage limit (organization_usage_limit_exceeded). Request a higher approved usage limit in OpenAI Limits. Adding credits alone will not remove this cap.',
+    insufficient_quota:'OpenAI API credits or a spending limit are blocking email writing (insufficient_quota). Check your API billing balance and project limits. Waiting and retrying alone will not fix this.',
+    billing_hard_limit_reached:'OpenAI has reached a billing limit (billing_hard_limit_reached). Check your API billing balance and spending limits. Waiting and retrying alone will not fix this.',
+   };
+   if(Object.hasOwn(billingErrors,code))throw new Error(billingErrors[code]);
+   if(code==='rate_limit_exceeded'||code==='slow_down'||error?.type==='rate_limit_error'){
+    if(typeof error?.message==='string'&&/request(?:ed)? (?:is )?too large/i.test(error.message))throw new Error('The website research request is too large for this OpenAI project’s token rate limit. Choose a smaller research page budget and rerun Research website, or request a higher token limit in OpenAI Limits.');
+    const retryAfter=response.headers.get('retry-after');
+    const seconds=retryAfter&&/^\d+(?:\.\d+)?$/.test(retryAfter)?Math.ceil(Number(retryAfter)):0;
+    const wait=seconds>0&&seconds<=86400?`Wait at least ${seconds} seconds`:'Wait a minute';
+    const label=code==='slow_down'?'slow_down':'rate_limit_exceeded';
+    throw new Error(`OpenAI has a temporary request or token rate limit (${label}). ${wait}, then try one draft. Repeated failures need a check of your OpenAI project limits.`);
+   }
+   if(error?.type==='insufficient_quota')throw new Error(billingErrors.insufficient_quota);
+   throw new Error('OpenAI returned an unclassified usage limit (429). Check your API billing balance and project limits.');
+  }
   await response.body?.cancel();
   if(response.status===401||response.status===403)throw new Error('OpenAI rejected the connection. Check the server API key and project permissions.');
   if(response.status===404)throw new Error('The OpenAI writing model is unavailable to this API project. Check model access.');
-  if(response.status===429)throw new Error('OpenAI could not process this draft. Check API billing, credits and rate limits.');
   throw new Error(`OpenAI writing returned HTTP ${response.status}. Try again.`);
  }
  const result=record(await responseJson(response));

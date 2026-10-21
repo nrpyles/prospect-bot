@@ -31,3 +31,32 @@ test('OpenAI errors never echo provider response data or retry billable work',as
  assert.equal(calls,1);
  await assert.rejects(service.draftPersonalizedEmail(input,{apiKey:'',request:async()=>{throw Error('must not call');}}),/OpenAI.*configured|OPENAI_API_KEY/i);
 });
+
+test('OpenAI billing quota and temporary rate limits have distinct safe remedies',async()=>{
+ for(const [code,expected,excluded] of [['insufficient_quota',/credits|spending limit/i,/try again in a minute/i],['rate_limit_exceeded',/temporary.*rate limit/i,/add.*credits/i]]){
+  await assert.rejects(service.draftPersonalizedEmail(input,{apiKey:'fixture-only',request:async()=>json({error:{code,type:code,message:'secret-fixture-provider-data'}},429)}),error=>expected.test(error.message)&&!excluded.test(error.message)&&!error.message.includes('secret-fixture'));
+ }
+});
+
+test('an oversized single request is not described as temporary request throttling',async()=>{
+ await assert.rejects(service.draftPersonalizedEmail(input,{apiKey:'fixture-only',request:async()=>json({error:{code:'rate_limit_exceeded',type:'tokens',message:'Request too large: tokens per min limit. secret-fixture-provider-data'}},429)}),error=>/research.*too large|request.*too large/i.test(error.message)&&!error.message.includes('secret-fixture'));
+});
+
+test('current OpenAI credit, spend and approved usage caps explain the specific remedy',async()=>{
+ for(const [code,expected] of [
+  ['credit_balance_exhausted',/credits.*exhausted.*billing/i],
+  ['organization_spend_limit_exceeded',/organization.*spending limit.*billing/i],
+  ['project_spend_limit_exceeded',/project.*spending limit.*project settings/i],
+  ['organization_usage_limit_exceeded',/approved.*usage limit.*higher/i],
+ ]){
+  await assert.rejects(service.draftPersonalizedEmail(input,{apiKey:'fixture-only',request:async()=>json({error:{code,type:'insufficient_quota',message:'secret-fixture-provider-data'}},429)}),error=>expected.test(error.message)&&error.message.includes(code)&&!error.message.includes('secret-fixture'));
+ }
+});
+
+test('slow_down respects a numeric Retry-After without retrying the draft',async()=>{
+ let calls=0;
+ await assert.rejects(service.draftPersonalizedEmail(input,{apiKey:'fixture-only',request:async()=>{
+  calls++;return new Response(JSON.stringify({error:{code:'slow_down',type:'rate_limit_error',message:'secret-fixture-provider-data'}}),{status:429,headers:{'Retry-After':'120'}});
+ }}),error=>/slow_down/.test(error.message)&&/120 seconds/.test(error.message)&&!error.message.includes('secret-fixture'));
+ assert.equal(calls,1);
+});
